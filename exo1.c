@@ -1,10 +1,8 @@
 /*  
 -----------------------------
 Test du fichier : 
-
  >gcc exo1.c sha256.c -o main
  >./main toto
-
 -----------------------------
 */
 
@@ -68,8 +66,8 @@ int main (int argc, char * argv[])
   while((taille = read(file,buffer,BUFFER_SIZE)) > 0) // parcourt le fichier 10 octets par 10 pour l'instant
   {
       //suppr_retour_chariot(buffer);
-      printf("la taille %d",taille);
-      buffer[BUFFER_SIZE]='\0';
+      printf("taille %d ",taille);
+      buffer[taille]='\0';
       printf("chunk %d : %s\n",i,buffer);       
       sha256_init(&ctx);
       sha256_update(&ctx,buffer,taille);
@@ -90,7 +88,6 @@ int main (int argc, char * argv[])
     
     
   FILE* fichier = NULL;
-
   fichier = fopen(argv[1], "r+");
   char buff[BUFFER_SIZE];
   if (fichier != NULL)
