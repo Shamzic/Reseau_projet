@@ -54,7 +54,7 @@ int main (int argc, char * argv[])
   //int idx;
   SHA256_CTX ctx;
   
-  printf("fichier haché : %s\n",argv[1]);
+  //printf("fichier haché : %s\n",argv[1]);
   int file=0;
   if((file=open(argv[1],O_RDONLY)) < -1)
     msg_error("open\n");
@@ -62,7 +62,26 @@ int main (int argc, char * argv[])
   unsigned char buffer[BUFFER_SIZE];
   //buffer = (char*)malloc(BUFFER_SIZE);
   int i=1;
+  int size =0;
+  char *chainefile =malloc(1);
+  chainefile[0] = '\0';
+  char *fin =malloc(1);
+  fin[0] = '\0';
+  while((taille = read(file,chainefile,1)) > 0) 
+  {
+    size++;
+    fin = (char*)realloc(fin,size*size);
+   // printf("chaine %s\n",chainefile);
+    strcat(fin,chainefile);
+  }
+  //printf("fichier total : %s",fin);
+  printf("FILE HASH : ");
+  sha256_init(&ctx);
+  sha256_update(&ctx,(unsigned char*)fin,strlen(fin)-1);
+  sha256_final(&ctx,hash);
+  print_hash(hash);
   
+  lseek(file,0,SEEK_SET);  
   while((taille = read(file,buffer,BUFFER_SIZE)) > 0) 
   // parcourt le fichier 10 octets par 10 pour l'instant
   {
@@ -76,7 +95,7 @@ int main (int argc, char * argv[])
       else if (taille < BUFFER_SIZE)
         sha256_update(&ctx,buffer,taille-1);
       sha256_final(&ctx,hash);
-      printf("chunk %d : ",i);
+      printf("CHUNK %d : ",i);
       print_hash(hash);
       i++;     
   } 
