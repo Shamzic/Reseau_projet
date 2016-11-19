@@ -33,6 +33,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 
 // structures du client
@@ -109,20 +110,20 @@ typedef struct s_message_rep_list
 
 typedef struct infos_s
 {
-    int sockfdtracker; // fd qui sert à faire les sockets
+    int sockfdtarget; // fd qui sert à faire les sockets
     int sockfdmy;
-    struct sockaddr_in tracker;
-    struct sockaddr_in myaddr;
+    struct sockaddr_in target;
+    struct sockaddr_in my_addr;
     socklen_t addrlen_s;
     socklen_t addrlen_c;
-    
+    void * message; // contain the message
 } infos;
 
 // open listen port on port port_listen
-infos init_ecoute(short int port_listen, infos infos_com)
+infos init_listen(short int port_listen, infos infos_com)
 {
     socklen_t addrlen = sizeof(struct sockaddr_in);    
-    memset (&infos_com.myaddr, 0, sizeof (struct sockaddr_in));
+    memset (&infos_com.my_addr, 0, sizeof (struct sockaddr_in));
     
     if((infos_com.sockfdmy = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
@@ -131,16 +132,16 @@ infos init_ecoute(short int port_listen, infos infos_com)
     }
 
     // init local addr structure and other params
-    my_addr.sin_family      = AF_INET;
-    my_addr.sin_port        = port_listen;
-    my_addr.sin_addr.s_addr = INADDR_ANY;
+    infos_com.my_addr.sin_family      = AF_INET;
+    infos_com.my_addr.sin_port        = port_listen;
+    infos_com.my_addr.sin_addr.s_addr = INADDR_ANY;
     
     
     // bind addr structure with socket
-    if(bind(infos_com.sockfdmy, (struct sockaddr *) &my_addr, addrlen) == -1)
+    if(bind(infos_com.sockfdmy, (struct sockaddr *) &infos_com.my_addr, addrlen) == -1)
     {
       perror("bind");
-      close(sockfd);
+      close(infos_com.sockfdmy);
       exit(EXIT_FAILURE);
     }
 
@@ -149,7 +150,7 @@ infos init_ecoute(short int port_listen, infos infos_com)
     if(listen(infos_com.sockfdmy, 5) == -1)
     {
         perror("listen");
-        close(sockfd);
+        close(infos_com.sockfdmy);
         exit(EXIT_FAILURE);
     }
 
@@ -159,82 +160,94 @@ infos init_ecoute(short int port_listen, infos infos_com)
 }
     
 // open connexion to address addr_connect port port_send
-infos init_connexion(char * addr_connect, short int port_send)
+infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
 {    
-    memset (&infos_com.tracker, 0, sizeof (struct sockaddr_in)); // remplit les bytes sur lesquels pointe &server avec des 0
-
-
-
-
-    // initialisation socket pour faire d'autres sockets
-    if((infos_com.sockfdtracker = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    socklen_t addrlen;
+    memset (&infos_com.target, 0, sizeof (struct sockaddr_in)); // remplit les bytes sur lesquels pointe &server avec des 0
+    
+    
+    if((infos_com.sockfdtarget = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
         perror("socket");
         exit(EXIT_FAILURE);
     }
 
-    // initialise structure server et myaadr
-    infos_com.tracker.sin_family = AF_INET;
-    infos_com.tracker.sin_port   = port_send;
-    infos_com.addrlen_s          = sizeof(struct sockaddr_in);
-    infos_com.myaddr.sin_family  = AF_INET;
-    infos_com.myaddr.sin_port    = port_listen;
-    infos_com.addrlen_c          = sizeof(struct sockaddr_in);
-    
-    
-    
-    // prend l'adresse et la converti
-    if(inet_pton(AF_INET,addr_serv,&tracker.sin_addr) != 1)
+    // init remote addr structure and other params
+    infos_com.target.sin_family = AF_INET;
+    infos_com.target.sin_port   = port_send;
+    addrlen                     = sizeof(struct sockaddr_in);
+
+    // get addr from command line and convert it
+    if(inet_pton(AF_INET,addr_connect,&infos_com.target.sin_addr) != 1)
     {
         perror("inet_pton");
-        close(infos_com.sockfd);
+        close(infos_com.sockfdtarget);
         exit(EXIT_FAILURE);
     }
-    infos_com.my_addr.sin_addr.s_addr = INADDR_ANY;
-    
-    
-    // connexion au tracker
-    printf("Trying to connect to tracker\n");
-    if(connect(sockfd,(struct sockaddr*)&server,addrlen) == -1)
+
+    printf("Trying to connect to the remote host\n");
+    if(connect(infos_com.sockfdtarget,(struct sockaddr*)&infos_com.target,addrlen) == -1)
     {
         perror("connect");
         exit(EXIT_FAILURE);
     }
 
-    printf("Connection  with tracker OK\n");
-    
-    // 
-    
-    
+    printf("Connection OK\n");
     return infos_com;
 }
 
 
 int main(int argc, char **argv)
 {
-    infos infos_com = init(argv);
+    infos infos_com;
+    short int port_send,port_listen;
+    char * addr;
     
     // check the number of args on command line
-    if(argc != 5)
+    if(argc != 6)
     {
       printf("USAGE: %s @server port_send port_listen action hash \n", argv[0]);
       exit(-1);
     }
-
-
-
-    // send string
-    if(sendto(sockfd,argv[3], strlen(argv[3]),0,(struct sockaddr * ) &server,addrlen) == -1)
+    
+    // Analyse arguments
+    // possible actions : GET, LIST, PUT, GET, KEEP_ALIVE, PRINT ? 
+    if (strcmp(argv[4],"get") == 0)
     {
-        perror("sendto");
-        close(sockfd);
+        printf("put\n");
+    }
+    else if (strcmp(argv[4],"list") == 0)
+    {
+        printf("salut\n");
+    }
+    else if (strcmp(argv[4],"put") == 0)
+    {
+        printf("salut\n");
+    }
+    else if (strcmp(argv[4],"keep_alive") == 0)
+    {
+        printf("salut\n");
+    }
+    else
+    {
+        errno = EINVAL;
+        perror("Action ");
         exit(EXIT_FAILURE);
     }
-
-    printf("Disconnection\n");
-
+    
+    
+    
+    // set parameters
+    port_send   = atoi(argv[2]);
+    port_listen = atoi(argv[3]);
+    addr        = argv[1];
+    
+    infos_com   = init_listen(port_listen, infos_com);
+    infos_com   = init_connexion(addr, port_send, infos_com);
+    
+    
+    
     // close the socket
-    close(sockfd);
 
     return 0;
 }
