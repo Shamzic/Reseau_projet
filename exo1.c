@@ -70,7 +70,7 @@ int main (int argc, char * argv[])
   while((taille = read(file,chainefile,1)) > 0) 
   {
     size++;
-    fin = (char*)realloc(fin,size*size);
+    fin = (char*)realloc(fin,size+strlen(chainefile));
    // printf("chaine %s\n",chainefile);
     strcat(fin,chainefile);
   }
@@ -80,6 +80,8 @@ int main (int argc, char * argv[])
   sha256_update(&ctx,(unsigned char*)fin,strlen(fin)-1);
   sha256_final(&ctx,hash);
   print_hash(hash);
+  free(fin);
+  free(chainefile);
   
   lseek(file,0,SEEK_SET);  
   while((taille = read(file,buffer,BUFFER_SIZE)) > 0) 
