@@ -87,7 +87,7 @@ typedef struct s_message_get
     char type;
     short int length;
     hash_f file_h;
-    hash_c chunck_h;
+    hash_c chunk_h;
 } message_get;
 // message REP_GET
 typedef struct s_message_rep_get
@@ -95,8 +95,8 @@ typedef struct s_message_rep_get
     char type;
     short int length;
     hash_f file_h;
-    hash_c chunck_h;
-    char * chunck;
+    hash_c chunk_h;
+    char * chunk;
 } message_rep_get;
 
 // message REP_LIST
@@ -105,7 +105,7 @@ typedef struct s_message_rep_list
     char type;
     short int length;
     hash_f file_h;
-    hash_c * chunck_list;
+    hash_c * chunk_list;
 } message_rep_list;
 
 typedef struct infos_s
@@ -196,7 +196,72 @@ infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
     return infos_com;
 }
 
+/*
+void send_msg(infos infos_com)
+{
+    if(sendto(infos_com.sockfdtarget,infos_com.message, strlen(argv[3]),0,(struct sockaddr * ) &server,addrlen) == -1)
+    {
+        perror("sendto");
+        close(sockfd);
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
 
+    
+}
+*/
+
+// function which put i (int) into buf begin on begin
+unsigned char * int_to_buf(unsigned char * buf,int i,int begin)
+{
+	buf[begin]=i & 0xFF;
+	buf[begin+1]=(i>>8) & 0xFF;
+	buf[begin+2]=(i>>16)& 0xFF;
+	buf[begin+3]=(i>>24) & 0xFF;
+	return buf;	
+}
+
+
+unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin)
+{
+	buf[begin]=i & 0xFF;
+	buf[begin+1]=(i>>8) & 0xFF;
+	return buf;	
+}
+short int buf_to_s_int ( unsigned char * buf)
+{
+    return *(short int*) buf;
+}
+int buf_to_int ( unsigned char * buf)
+{
+    return *(int*) buf;
+}
+
+// length hash fichier : 32
+// length hash chunk : 32
+// length client : 1+2+2+4 = 9 or 1+2+2+16 = 21
+
+
+// message get between 2 clients
+unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk)
+{
+    unsigned char *buffer=malloc(73); // ou 74 ? 
+    short int length;
+    // create the message
+    buffer[0] = 100 ; // set type
+    length    = 32 + 32;
+    buffer    = s_int_to_buf(buffer,length, 1);
+    // hash file
+    buffer[3] = 50;
+    buffer    = s_int_to_buf(buffer,32,4);
+    memcpy(buffer+6,hash_file,32);
+    // hash chunk
+    buffer[38] = 51;
+    buffer = s_int_to_buf(buffer,32,39);
+    memcpy(buffer+41,hash_chunk,32);
+    
+    return buffer;
+}
 int main(int argc, char **argv)
 {
     infos infos_com;
@@ -210,11 +275,26 @@ int main(int argc, char **argv)
       exit(-1);
     }
     
+    
+    // set parameters
+    port_send   = atoi(argv[2]);
+    port_listen = atoi(argv[3]);
+    addr        = argv[1];
+    
+    infos_com   = init_listen(port_listen, infos_com);
+    infos_com   = init_connexion(addr, port_send, infos_com);
+    
     // Analyse arguments
     // possible actions : GET, LIST, PUT, GET, KEEP_ALIVE, PRINT ? 
     if (strcmp(argv[4],"get") == 0)
     {
         printf("put\n");
+        // initialise l'écoute et la connexion avec le tracker
+        infos_com = init_listen(port_listen,infos_com);
+        infos_com = init_connexion(addr,port_send,infos_com);
+        
+        // envoi un message au tracker
+        send_msg(infos_com);
     }
     else if (strcmp(argv[4],"list") == 0)
     {
@@ -236,14 +316,6 @@ int main(int argc, char **argv)
     }
     
     
-    
-    // set parameters
-    port_send   = atoi(argv[2]);
-    port_listen = atoi(argv[3]);
-    addr        = argv[1];
-    
-    infos_com   = init_listen(port_listen, infos_com);
-    infos_com   = init_connexion(addr, port_send, infos_com);
     
     
     
