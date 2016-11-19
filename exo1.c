@@ -1,9 +1,18 @@
+/*  
+-----------------------------
+Test du fichier : 
+
+ >gcc exo1.c sha256.c -o main
+ >./main toto
+
+-----------------------------
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h> 
 #include <sys/types.h> 
-
 #include <memory.h>
 #include <string.h>
 #include "sha256.h"
