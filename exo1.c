@@ -36,7 +36,7 @@ void print_hash(unsigned char hash[])
 
 char *suppr_retour_chariot(char * s)
 {
-  if(s[strlen(s)]=='\n');
+  if(s[strlen(s)]=='\n')
     s[strlen(s)]='\0';
   return s;
 }
@@ -48,12 +48,12 @@ int main (int argc, char * argv[])
 {
   if (argc != 2) 
   {
-        fprintf(stderr,"usage: %s nomfichier",argv[0]);
+        fprintf(stderr,"usage: %s nomfichier\n",argv[0]);
         exit(1);
   }
  
   unsigned char hash[32];
-  int idx;
+  //int idx;
   SHA256_CTX ctx;
   
   printf("fichier haché : %s\n",argv[1]);
@@ -61,17 +61,18 @@ int main (int argc, char * argv[])
   if((file=open(argv[1],O_RDONLY)) < -1)
     msg_error("open\n");
   int taille;
-  char buffer[BUFFER_SIZE];
+  unsigned char buffer[BUFFER_SIZE];
   //buffer = (char*)malloc(BUFFER_SIZE);
   int i=1;
   
-  while(taille = read(file,buffer,BUFFER_SIZE) > 0) // parcourt le fichier 10 octets par 10 pour l'instant
+  while((taille = read(file,buffer,BUFFER_SIZE)) > 0) // parcourt le fichier 10 octets par 10 pour l'instant
   {
       //suppr_retour_chariot(buffer);
+      printf("la taille %d",taille);
       buffer[BUFFER_SIZE]='\0';
       printf("chunk %d : %s\n",i,buffer);       
       sha256_init(&ctx);
-      sha256_update(&ctx,buffer,BUFFER_SIZE);
+      sha256_update(&ctx,buffer,taille);
       sha256_final(&ctx,hash);
       print_hash(hash);
       i++;     
