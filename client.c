@@ -228,6 +228,13 @@ unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin)
 	buf[begin+1]=(i>>8) & 0xFF;
 	return buf;	
 }
+unsigned char * us_int_to_buf(unsigned char * buf,unsigned short int i,int begin)
+{
+	buf[begin]=i & 0xFF;
+	buf[begin+1]=(i>>8) & 0xFF;
+	return buf;	
+}
+
 short int buf_to_s_int ( unsigned char * buf)
 {
     return *(short int*) buf;
@@ -242,10 +249,10 @@ int buf_to_int ( unsigned char * buf)
 // length client : 1+2+2+4 = 9 or 1+2+2+16 = 21
 
 
-// message get between 2 clients
+// message GET between 2 clients
 unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk)
 {
-    unsigned char *buffer=malloc(73); // ou 74 ? 
+    unsigned char *buffer=malloc(74); // ou 74 ? 
     short int length;
     // create the message
     buffer[0] = 100 ; // set type
@@ -259,9 +266,104 @@ unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char
     buffer[38] = 51;
     buffer = s_int_to_buf(buffer,32,39);
     memcpy(buffer+41,hash_chunk,32);
-    
     return buffer;
 }
+
+int u_strlen ( unsigned char * string)
+{
+    int length = 0;
+    while(string[length] != '\0')
+        length ++ ;
+    return length;
+}
+
+// message REP_GET
+// chunk doit finir par un \0
+unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char * hash_chunk,char * chunk,short int index, short int max_index)
+{
+    short int length_chunk = u_strlen(hash_chunk) ;
+    unsigned char *buffer=malloc(74+length_chunk+ 7); // ou 74 ? 
+    short int length;
+    // create the message
+    buffer[0] = 101 ; // set type
+    length    = 32 + 32;
+    buffer    = s_int_to_buf(buffer,length, 1);
+    // hash file
+    buffer[3] = 50;
+    buffer    = s_int_to_buf(buffer,32,4);
+    memcpy(buffer+6,hash_file,32);
+    // hash chunk
+    buffer[38] = 51;
+    buffer     = s_int_to_buf(buffer,32,39);
+    memcpy(buffer+41,hash_chunk,32);
+    // chunk
+    buffer[74]  =60;
+    buffer      = s_int_to_buf(buffer,length,75);
+    buffer      = s_int_to_buf(buffer,index,77);
+    buffer      = s_int_to_buf(buffer,max_index,79);
+    memcpy(buffer+81,chunk,length);
+    return buffer;
+}
+
+// message LIST
+unsigned char * create_message_list(unsigned char * hash_file)
+{
+    unsigned char *buffer=malloc(38); // ou 74 ? 
+    short int length;
+    // create the message
+    buffer[0] = 102 ; // set type
+    length    = 32;
+    buffer    = s_int_to_buf(buffer,length, 1);
+    // hash file
+    buffer[3] = 50;
+    buffer    = s_int_to_buf(buffer,32,4);
+    memcpy(buffer+6,hash_file,32);
+    return buffer;
+}
+
+// message REP_LIST
+unsigned char * create_message_list(unsigned char * hash_file);
+
+
+// message PUT
+unsigned char * create_message_put(unsigned char * hash_file,char IP_TYPE, char * address,unsigned short int port)
+{
+    short int length_address;
+    unsigned char *buffer; // ou 74 ? 
+    short int length;
+    
+    if (IP_TYPE == 4)
+        length_address = 4;
+    else
+        length_address = 16;
+    // create the message
+    buffer=malloc(38);
+    buffer[0] = 102 ; // set type
+    length    = 32 + length_address + 5;
+    buffer    = s_int_to_buf(buffer,length, 1);
+    
+    // hash file
+    buffer[3] = 50;
+    buffer    = s_int_to_buf(buffer,32,4);
+    memcpy(buffer+6,hash_file,32);
+    
+    // client
+    buffer[39] = 55;
+    buffer     = s_int_to_buf(buffer,length_address + 2, 40);
+    buffer     = us_int_to_buf(buffer,port, 42);
+    memcpy(buffer+44,address,length_address);
+    return buffer;
+}
+
+// message GET
+unsigned char * create_message_get(unsigned char * hash_file,char IP_TYPE, char * address,unsigned short int port)
+{
+    char * address = create_message_put( hash_file, IP_TYPE, address, port);
+    address[0] = 112;
+    return address;
+}
+
+
 int main(int argc, char **argv)
 {
     infos infos_com;
