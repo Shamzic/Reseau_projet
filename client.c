@@ -118,13 +118,10 @@ typedef struct infos_s
     
 } infos;
 
-infos init(char *addr_tracker, short int port_send, short int port_listen)
+// open listen port on port port_listen
+infos init_ecoute(short int port_listen, infos infos_com)
 {
-    infos infos_com;
-    socklen_t addrlen = sizeof(struct sockaddr_in);
-
-    // débute par ouvrir un port d'écoute
-    
+    socklen_t addrlen = sizeof(struct sockaddr_in);    
     memset (&infos_com.myaddr, 0, sizeof (struct sockaddr_in));
     
     if((infos_com.sockfdmy = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
@@ -157,10 +154,13 @@ infos init(char *addr_tracker, short int port_send, short int port_listen)
     }
 
     printf("Waiting for incomming connection\n");
+
+    return infos_com;
+}
     
-    
-    // Se connecte au tracker
-    
+// open connexion to address addr_connect port port_send
+infos init_connexion(char * addr_connect, short int port_send)
+{    
     memset (&infos_com.tracker, 0, sizeof (struct sockaddr_in)); // remplit les bytes sur lesquels pointe &server avec des 0
 
 
