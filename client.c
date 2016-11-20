@@ -116,7 +116,8 @@ typedef struct infos_s
     struct sockaddr_in my_addr;
     socklen_t addrlen_s;
     socklen_t addrlen_c;
-    void * message; // contain the message
+    char * addr_dest;
+    unsigned short int port_dest;
 } infos;
 
 // open listen port on port port_listen
@@ -125,7 +126,7 @@ infos init_listen(short int port_listen, infos infos_com)
     socklen_t addrlen = sizeof(struct sockaddr_in);    
     memset (&infos_com.my_addr, 0, sizeof (struct sockaddr_in));
     
-    if((infos_com.sockfdmy = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    if((infos_com.sockfdmy = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         perror("socked");
         exit(EXIT_FAILURE);
@@ -134,7 +135,7 @@ infos init_listen(short int port_listen, infos infos_com)
     // init local addr structure and other params
     infos_com.my_addr.sin_family      = AF_INET;
     infos_com.my_addr.sin_port        = port_listen;
-    infos_com.my_addr.sin_addr.s_addr = INADDR_ANY;
+    infos_com.my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
     
     // bind addr structure with socket
@@ -144,29 +145,16 @@ infos init_listen(short int port_listen, infos infos_com)
       close(infos_com.sockfdmy);
       exit(EXIT_FAILURE);
     }
-
-    // set the socket in passive mode (only used for accept())
-    // and set the list size for pending connection
-    if(listen(infos_com.sockfdmy, 5) == -1)
-    {
-        perror("listen");
-        close(infos_com.sockfdmy);
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Waiting for incomming connection\n");
-
     return infos_com;
 }
     
 // open connexion to address addr_connect port port_send
 infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
 {    
-    socklen_t addrlen;
     memset (&infos_com.target, 0, sizeof (struct sockaddr_in)); // remplit les bytes sur lesquels pointe &server avec des 0
     
     
-    if((infos_com.sockfdtarget = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    if((infos_com.sockfdtarget = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         perror("socket");
         exit(EXIT_FAILURE);
@@ -175,7 +163,6 @@ infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
     // init remote addr structure and other params
     infos_com.target.sin_family = AF_INET;
     infos_com.target.sin_port   = port_send;
-    addrlen                     = sizeof(struct sockaddr_in);
 
     // get addr from command line and convert it
     if(inet_pton(AF_INET,addr_connect,&infos_com.target.sin_addr) != 1)
@@ -184,32 +171,10 @@ infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
         close(infos_com.sockfdtarget);
         exit(EXIT_FAILURE);
     }
-
-    printf("Trying to connect to the remote host\n");
-    if(connect(infos_com.sockfdtarget,(struct sockaddr*)&infos_com.target,addrlen) == -1)
-    {
-        perror("connect");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Connection OK\n");
     return infos_com;
 }
 
-/*
-void send_msg(infos infos_com)
-{
-    if(sendto(infos_com.sockfdtarget,infos_com.message, strlen(argv[3]),0,(struct sockaddr * ) &server,addrlen) == -1)
-    {
-        perror("sendto");
-        close(sockfd);
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
 
-    
-}
-*/
 
 // function which put i (int) into buf begin on begin
 unsigned char * int_to_buf(unsigned char * buf,int i,int begin)
@@ -244,6 +209,16 @@ int buf_to_int ( unsigned char * buf)
     return *(int*) buf;
 }
 
+// strlen for unsigned string
+int u_strlen ( unsigned char * string)
+{
+    int length = 0;
+    while(string[length] != '\0')
+        length ++ ;
+    return length;
+}
+
+
 // length hash fichier : 32
 // length hash chunk : 32
 // length client : 1+2+2+4 = 9 or 1+2+2+16 = 21
@@ -269,13 +244,7 @@ unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char
     return buffer;
 }
 
-int u_strlen ( unsigned char * string)
-{
-    int length = 0;
-    while(string[length] != '\0')
-        length ++ ;
-    return length;
-}
+
 
 // message REP_GET
 // chunk doit finir par un \0
@@ -358,17 +327,189 @@ unsigned char * create_message_put(unsigned char * hash_file,char IP_TYPE, char 
 // message GET
 unsigned char * create_message_get(unsigned char * hash_file,char IP_TYPE, char * address,unsigned short int port)
 {
-    char * address = create_message_put( hash_file, IP_TYPE, address, port);
-    address[0] = 112;
-    return address;
+    unsigned char * buffer = create_message_put( hash_file, IP_TYPE, address, port);
+    buffer[0] = 112;
+    return buffer;
 }
 
+// message KEEP_ALIVE
+unsigned char * create_message_keep_alive(unsigned char * hash_file)
+{
+    unsigned char *buffer = create_message_list( hash_file);
+    buffer[0] = 114;
+    return buffer;
+}
+/*
+void send_msg(infos infos_com,char * hash, char * action)
+{
+    char * message;
+    // Analyse arguments
+    // possible actions : GET, LIST, PUT, GET, KEEP_ALIVE, PRINT ? 
+    if (strcmp(action,"get") == 0 )
+    {
+        printf("put\n");
+        message = 
+        
+    }
+    else if (strcmp(action,"list") == 0)
+    {
+        printf("list\n");
+    }
+    else if (strcmp(action,"put") == 0)
+    {
+        printf("put\n");
+    }
+    else if (strcmp(action,"keep_alive") == 0)
+    {
+        printf("keep_alive\n");
+    }
+    else
+    {
+        errno = EINVAL;
+        close(infos_com.sockfdmy);
+        close(infos_com.sockfdtarget);
+        perror("Action ");
+        exit(EXIT_FAILURE);
+    }
+}
+*/
+
+/*    //
+    
+    if(sendto(infos_com.sockfdtarget,infos_com.message, strlen(argv[3]),0,(struct sockaddr * ) &server,addrlen) == -1)
+    {
+        perror("sendto");
+        close(sockfd);
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+*/
+
+// send the message
+void send_packet (infos infos_com, unsigned char* message)
+{
+    if(sendto(infos_com.sockfdtarget, message, *(int*)(message+1), 0, NULL, 0) == -1)
+    {
+        perror("sendto");
+        close(infos_com.sockfdtarget);
+        close(infos_com.sockfdmy);
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+
+unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * action)
+{
+    unsigned char * message;
+    // Analyse arguments
+    // possible actions : PUT, GET, KEEP_ALIVE, PRINT ? 
+    if (strcmp(action,"put") == 0 )
+    {
+        printf("put\n");
+        message = create_message_put(hash,6,infos_com.addr_dest,infos_com.port_dest);
+    }
+    else if (strcmp(action,"get") == 0)
+    {
+        printf("get\n");
+        message = create_message_get(hash, 6, infos_com.addr_dest, infos_com.port_dest); // create the message
+    }
+    else if (strcmp(action,"keep_alive") == 0)
+    {
+        printf("keep_alive\n");
+        message = create_message_keep_alive(hash);
+    }
+    else
+    {
+        errno = EINVAL;
+        close(infos_com.sockfdmy);
+        close(infos_com.sockfdtarget);
+        perror("Action ");
+        exit(EXIT_FAILURE);
+    }
+    send_packet(infos_com,message); // send the packet to tracker
+    return message;
+}
+int u_strncmp(unsigned char * string1,unsigned char * string2, int n)
+{
+    int i;
+    for(i=0;i<n;i++)
+    {
+        if(string1[i]!=string2[i])
+            return i;
+    }
+    return 0;
+}
+int test_response_tracker(infos infos_com , char * action, unsigned char * message)
+{
+    struct sockaddr tracker;
+    socklen_t addrlen;
+    unsigned char buf[1024];
+    usleep(100); // sleep for x ms
+    // wait for response
+    if(recvfrom(infos_com.sockfdtarget, buf, 1024, MSG_DONTWAIT,&tracker,&addrlen) == -1)
+    {
+        if ( errno == EAGAIN || errno == EWOULDBLOCK) // there were no packet
+            return -1;
+        perror("recv");
+        close(infos_com.sockfdmy);
+        close(infos_com.sockfdtarget);
+        exit(EXIT_FAILURE);
+    }
+    
+    // test of message received
+    
+    if (strcmp(action,"put") == 0 )
+    {
+        if ( buf[0] != 110)
+            return -1;
+        buf[0]=110;
+        if(u_strncmp(buf,message,addrlen)!=0) // strings !=
+            return -1;
+    }
+    else if (strcmp(action,"get") == 0)
+    {
+        printf("faut le faire\n");
+    }
+    else if (strcmp(action,"keep_alive") == 0)
+    {
+        if ( buf[0] != 114)
+            return -1;
+        buf[0]=115;
+        if(u_strncmp(buf,message,addrlen)!=0) // strings !=
+            return -1;
+    }
+    else
+        return -1;
+    return 0;
+}
+ 
+unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char * action)
+{
+    int msg_received = -1;
+    unsigned char * message;
+    
+    while (msg_received == -1)
+    {
+        // begin with comunicate with tracker
+        printf("Send message to tracker\n");
+        message = send_msg_tracker(infos_com,hash,action);
+        msg_received = test_response_tracker(infos_com, action, message);
+    }
+    return message;
+}
 
 int main(int argc, char **argv)
 {
     infos infos_com;
     short int port_send,port_listen;
-    char * addr;
+    char * action;
+    unsigned char * hash;
+    unsigned char buf[1024];
+    struct sockaddr enter_co;
+    socklen_t addrlen;
+    unsigned char * message;
     
     // check the number of args on command line
     if(argc != 6)
@@ -379,47 +520,40 @@ int main(int argc, char **argv)
     
     
     // set parameters
-    port_send   = atoi(argv[2]);
-    port_listen = atoi(argv[3]);
-    addr        = argv[1];
+    port_send           = atoi(argv[2]);
+    port_listen         = atoi(argv[3]);
+    action              = argv[4];
+    hash                = (unsigned char *)argv[5];
+    infos_com.addr_dest = argv[1];
+    infos_com.port_dest = port_send;
+    infos_com           = init_listen(port_listen, infos_com);
+    infos_com           = init_connexion(infos_com.addr_dest, port_send, infos_com);
+
+    // communicate with tracker
+    message = communicate_tracker(infos_com,hash,action);
     
-    infos_com   = init_listen(port_listen, infos_com);
-    infos_com   = init_connexion(addr, port_send, infos_com);
+    // communicate with tracker or with clients
     
-    // Analyse arguments
-    // possible actions : GET, LIST, PUT, GET, KEEP_ALIVE, PRINT ? 
-    if (strcmp(argv[4],"get") == 0)
+    // communicate with tracker
+    if(strcmp(action,"put") == 0 || strcmp(action,"get") == 0 || strcmp(action,"keep_alive") == 0 ) 
     {
-        printf("put\n");
-        // initialise l'écoute et la connexion avec le tracker
-        infos_com = init_listen(port_listen,infos_com);
-        infos_com = init_connexion(addr,port_send,infos_com);
+        // wait for messages
+        if(recvfrom(infos_com.sockfdmy, buf, 1024, 0,&enter_co,&addrlen) == -1)
+        {
+            perror("recv");
+            close(infos_com.sockfdmy);
+            close(infos_com.sockfdtarget);
+            exit(EXIT_FAILURE);
+        }
         
-        // envoi un message au tracker
-        send_msg(infos_com);
+        
     }
-    else if (strcmp(argv[4],"list") == 0)
+    // communicate with client
+    else if(strcmp(action,"get") == 0 || strcmp(action,"list") == 0 ) 
     {
-        printf("salut\n");
+        
+        
     }
-    else if (strcmp(argv[4],"put") == 0)
-    {
-        printf("salut\n");
-    }
-    else if (strcmp(argv[4],"keep_alive") == 0)
-    {
-        printf("salut\n");
-    }
-    else
-    {
-        errno = EINVAL;
-        perror("Action ");
-        exit(EXIT_FAILURE);
-    }
-    
-    
-    
-    
     
     // close the socket
 
