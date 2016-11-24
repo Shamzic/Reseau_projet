@@ -23,5 +23,18 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * messa
 
 unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char * action);
 
+int u_strncmp(unsigned char * string1,unsigned char * string2, int n);
+
+int u_strlen ( unsigned char * string);
+
+int buf_to_int ( unsigned char * buf);
+
+short int buf_to_s_int ( unsigned char * buf);
+
+unsigned char * us_int_to_buf(unsigned char * buf,unsigned short int i,int begin);
+
+unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin);
+
+unsigned char * int_to_buf(unsigned char * buf,int i,int begin);
 
 #endif
