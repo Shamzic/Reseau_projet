@@ -46,7 +46,7 @@ unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char *
     unsigned char *buffer=malloc(74+length_chunk+ 7); // ou 74 ? 
     short int length;
     // create the message
-    buffer[0] = 101 ; // set type
+    buffer[0] = 100 ; // set type
     length    = 32 + 32;
     buffer    = s_int_to_buf(buffer,length, 1);
     // hash file
@@ -98,9 +98,9 @@ unsigned char * create_message_put(unsigned char * hash_file,char IP_TYPE, char 
     else
         length_address = 16;
     // create the message
-    buffer=malloc(38);
-    buffer[0] = 102 ; // set type
-    length    = 32 + length_address + 5;
+    buffer=malloc(43 + length_address);
+    buffer[0] = 110 ; // set type
+    length    = 43 + length_address - 3;
     buffer    = s_int_to_buf(buffer,length, 1);
     
     // hash file
@@ -109,10 +109,10 @@ unsigned char * create_message_put(unsigned char * hash_file,char IP_TYPE, char 
     memcpy(buffer+6,hash_file,32);
     
     // client
-    buffer[39] = 55;
-    buffer     = s_int_to_buf(buffer,length_address + 2, 40);
-    buffer     = us_int_to_buf(buffer,port, 42);
-    memcpy(buffer+44,address,length_address);
+    buffer[38] = 55;
+    buffer     = s_int_to_buf(buffer,length_address + 2, 39);
+    buffer     = us_int_to_buf(buffer,port, 41);
+    memcpy(buffer+43,address,length_address);
     return buffer;
 }
 
