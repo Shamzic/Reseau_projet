@@ -230,7 +230,7 @@ unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char
     unsigned char *buffer=malloc(74); // ou 74 ? 
     short int length;
     // create the message
-    buffer[0] = 100 ; // set type
+    buffer[0] =100 ; // set type
     length    = 32 + 32;
     buffer    = s_int_to_buf(buffer,length, 1);
     // hash file
