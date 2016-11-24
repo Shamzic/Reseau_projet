@@ -134,23 +134,23 @@ void send_packet (infos infos_com, unsigned char* message)
 
 unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * action)
 {
-    unsigned char * message_send;
+    unsigned char * msg_send;
     // Analyse arguments
     // possible actions : PUT, GET, KEEP_ALIVE, PRINT ? 
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
-        message_send = create_message_put(hash,6,infos_com.addr_dest,infos_com.port_dest);
+        msg_send = create_message_put(hash,6,infos_com.addr_dest,infos_com.port_dest);
     }
     else if (strcmp(action,"get") == 0)
     {
         printf("get\n");
-        message_send = create_message_get(hash, 6, infos_com.addr_dest, infos_com.port_dest); // create the message
+        msg_send = create_message_get(hash, 6, infos_com.addr_dest, infos_com.port_dest); // create the message
     }
     else if (strcmp(action,"keep_alive") == 0)
     {
         printf("keep_alive\n");
-        message_send = create_message_keep_alive(hash);
+        msg_send = create_message_keep_alive(hash);
     }
     else
     {
@@ -160,11 +160,11 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
         perror("Action ");
         exit(EXIT_FAILURE);
     }
-    send_packet(infos_com,message_send); // send the packet to tracker
-    return message_send;
+    send_packet(infos_com,msg_send); // send the packet to tracker
+    return msg_send;
 }
 
-int test_response_tracker(infos infos_com , char * action, unsigned char * message_send)
+int test_response_tracker(infos infos_com , char * action, unsigned char * msg_send)
 {
     struct sockaddr tracker;
     socklen_t addrlen;
@@ -180,67 +180,79 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * messa
         close(infos_com.sockfdtarget);
         exit(EXIT_FAILURE);
     }
+    if(strcmp(action,"get") == 0)
+        action[1] = 't';
     
     // test of message received
-    
-    if (strcmp(action,"put") == 0 )
-    {
-        if ( msg_recv[0] != 110)
-            return -1;
-        msg_recv[0]=110;
-        if(u_strncmp(msg_recv,message_send,addrlen)!=0) // strings !=
-            return -1;
-    }
-    else if (strcmp(action,"get") == 0)
-    {
-        printf("faut le faire\n");
-    }
-    else if (strcmp(action,"keep_alive") == 0)
-    {
-        if ( msg_recv[0] != 114)
-            return -1;
-        msg_recv[0]=115;
-        if(u_strncmp(msg_recv,message_send,addrlen)!=0) // strings !=
-            return -1;
-    }
-    else
-        return -1;
-    return 0;
+    return test_rep( action, msg_send, msg_recv);
 }
 
-/*
+
 // test if right message was received
-int test_rep(infos infos_com, char * action, unsigned char * message_send, unsigned char * message_rcv)
+int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
 {
-    short int msg_send_length = buf_to_s_int(message_send +1);
+    short int msg_send_length = buf_to_s_int(msg_send +1) +3; // length in message + 3 (type + length)
+    
+    // communication with clients
     if(strcmp(action,"gtt") == 0) // message get tracker
     {
-        
-        
+        if (msg_recv[0] != 101) // test if good type of message
+            return -1;
+        msg_recv[0] = 100; // change type to compare with msg_send
+        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+            return -1;
+    }
+    else if(strcmp(action,"list") == 0) // message get tracker
+    {
+        if (msg_recv[0] != 103) // test if good type of message
+            return -1;
+        msg_recv[0] = 102; // change type to compare with msg_send
+        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+            return -1;
     }
     
+    // communication with tracker
+    else if(strcmp(action,"put") == 0) // message get tracker
+    {
+        if (msg_recv[0] != 111) // test if good type of message
+            return -1;
+        msg_recv[0] = 110; // change type to compare with msg_send
+        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+            return -1;
+    }
+    else if(strcmp(action,"get") == 0) // message get tracker
+    {
+        if (msg_recv[0] != 113) // test if good type of message
+            return -1;
+        msg_recv[0] = 112; // change type to compare with msg_send
+        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+            return -1;
+    }
+    if(strcmp(action,"keep_alive") == 0) // message get tracker
+    {
+        if (msg_recv[0] != 115) // test if good type of message
+            return -1;
+        msg_recv[0] = 114; // change type to compare with msg_send
+        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+            return -1;
+    }
     
-    
-    
-    
-    
-    
+    return 0;
 }
-*/
 
 unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char * action)
 {
     int msg_received = -1;
-    unsigned char * message_send;
+    unsigned char * msg_send;
     
     while (msg_received == -1)
     {
         // begin with comunicate with tracker
         printf("Send message to tracker\n");
-        message_send = send_msg_tracker(infos_com,hash,action);
-        msg_received = test_response_tracker(infos_com, action, message_send);
+        msg_send = send_msg_tracker(infos_com,hash,action);
+        msg_received = test_response_tracker(infos_com, action, msg_send);
     }
-    return message_send;
+    return msg_send;
 }
 
 int main(int argc, char **argv)

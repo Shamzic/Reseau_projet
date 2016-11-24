@@ -37,4 +37,6 @@ unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin);
 
 unsigned char * int_to_buf(unsigned char * buf,int i,int begin);
 
+int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_rcv);
+
 #endif
