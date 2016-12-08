@@ -7,12 +7,30 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "structures.h"
+#include "messages.h"
 
-void reception_msg_ack_put(unsigned char * msg)
+/* réceptionne l'arrivée d'un message d'un client dans une structure message_t */
+/* IP_TYPE = 4 si IPv4 et 6 pour IPv6 */
+message_t reception_msg_put(unsigned char * buf,char IP_TYPE)
 {
-  
-;
-
+  message_t message;
+  short int length_address;
+  if (IP_TYPE == 4)
+        length_address = 4;
+    else
+        length_address = 16;
+        
+  message.type = buf[0];                       // Type du message total
+  message.length= buf_to_s_int(buf+1);         // Longueur du message total
+  message.hash.type = buf[3];                  // Type du msg_hash
+  message.hash.length = buf_to_s_int(buf+4);   // Taille du msg_hash
+  memcpy(buf+6,message.hash.hash,32);          // Hash
+  message.client.type = buf[38];               // Type du client
+  message.client.length = buf_to_s_int(buf+39); // Taille du client
+  message.client.port = buf_to_s_int(buf+41);                  // Port du client 
+  memcpy(buf+43,message.client.adresse_ip,length_address);  // Addresse du client
+  return message;
 }
 
 int main(int argc, char **argv)
@@ -76,6 +94,8 @@ int main(int argc, char **argv)
 	// Il faut à tout moment la valeur max des sockets d'un ensemble
     int max = sockfd;
     int i,sockfdnew, rcv;
+    message_t mess;
+    
     while(1)
     {
 		fd_set readfds = messockets; // celui qu'on utilise pour select (pck select modifie)
@@ -121,17 +141,15 @@ int main(int argc, char **argv)
 					else
 					{
 						// print the received char
-						printf("%s\n",buf);						
+						printf("%s\n",buf);			
+						mess = reception_msg_put((unsigned char*)buf,(char)4);
+						printf("valeur du type : %c",mess.type);
+									
 					}
 				}
 			}
 		}
 	}
-    // print the received char
-    
-    
-    printf("%s",buf);
-    
     
     
     
