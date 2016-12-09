@@ -13,7 +13,7 @@ unsigned char * create_message_get(unsigned char * hash_file,char IP_TYPE, char 
 
 unsigned char * create_message_keep_alive(unsigned char * hash_file);
 
-void send_packet (infos infos_com, unsigned char* message);
+void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr);
 
 unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * action);
 
