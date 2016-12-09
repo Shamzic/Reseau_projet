@@ -295,7 +295,7 @@ int main(int argc, char **argv)
         message = communicate_tracker(infos_com,hash,action);
     }
     else // communication client-client : GET, REP_GET, LIST, REP_LISTE
-    {
+    
         // wait for messages
         if(recvfrom(infos_com.sockfdmy, buf, 1024, 0,&enter_co,&addrlen) == -1)
         {
@@ -304,11 +304,11 @@ int main(int argc, char **argv)
             close(infos_com.sockfdtarget);
             exit(EXIT_FAILURE);
         }
-    }
+    
     // communicate with client
     else if(strcmp(action,"get") == 0 || strcmp(action,"list") == 0 ) 
     {
-        
+        ;
         
     }
     
