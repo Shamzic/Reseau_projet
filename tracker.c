@@ -17,8 +17,13 @@ typedef struct s_stock_list
 {
     char * hash;
     client_s* liste_clients;
-} *stock_list;
+}stock_list;
 
+typedef struct taille_liste
+{
+    int taille_actuelle;
+    int taille_max;
+}taille_l;
 
 client_s* ajouterEnTete (client_s* liste_clients, short int length,short int port,char *address_ip)
 {
@@ -136,7 +141,7 @@ int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans ta
     int i,bool=1;                                    // return 0 = true
     for (i =0; i<taille; i++)                        // return 1 =false
     {
-        if(sc[i]->hash == hash)
+        if(sc[i].hash == hash)
                 bool=0;
     }
     return bool; 
@@ -145,172 +150,159 @@ int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans ta
 int positionHash(char* hash, stock_list *sc,int taille) // Cherche la position du
 {                                                   // hash dans le tableau 
     int i=0;                                        // de [hash + client]
-    while((i<taille) && (sc[i]->hash!=hash))
+    while((i<taille) && (sc[i].hash!=hash))
     {
         i++;
     }
     return i;
 }
 
-void traite_msg(message_t mess,stock_list *sc,int taille) // traite TOUS les msgs
+void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msgs
 {                                                     // recu par le trackers
     if( mess.type == 110 )
     {
-        if( HashDansListe(mess.hash.hash,sc,taille) == 1) 
+        if( HashDansListe(mess.hash.hash,sc,t.taille_actuelle) == 1) 
         {                                        // Hash pas dans tab => nouveau hash
                                                  // ajouté en fin de tableau + client
-            taille++;
-            sc=realloc(sc,sizeof(stock_list)*taille);
-            sc[taille-1]->hash = malloc(sizeof(mess.hash.hash));
-            strcpy(sc[taille-1]->hash,mess.hash.hash);
-            sc[taille-1]->liste_clients=NULL;
-            sc[taille-1]->liste_clients=ajouterEnTete(sc[taille-1]->liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
+            t.taille_actuelle++;
+            if(t.taille_actuelle == t.taille_max)
+            {
+                t.taille_max=t.taille_max+t.taille_max;
+                sc=realloc(sc,sizeof(stock_list)*t.taille_max);
+            }
+            sc[t.taille_actuelle-1].hash = malloc(sizeof(mess.hash.hash));
+            strcpy(sc[t.taille_actuelle-1].hash,mess.hash.hash);
+            sc[t.taille_actuelle-1].liste_clients=NULL;
+            sc[t.taille_actuelle-1].liste_clients=ajouterEnTete(sc[t.taille_actuelle-1].liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
         }
-        else if(HashDansListe(mess.hash.hash,sc,taille)==0) 
+        else if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
         // hash dans tab => ajout à la suite
         {
-            int pos = positionHash(mess.hash.hash,sc,taille);
-            sc[pos]->liste_clients=ajouterEnFin(sc[pos]->liste_clients,
+            int pos = positionHash(mess.hash.hash,sc,t.taille_actuelle);
+            sc[pos].liste_clients=ajouterEnFin(sc[pos].liste_clients,
             mess.client.length,mess.client.port,mess.client.address_ip);
         }
     }
 }
 
+void ack_put(message_t mess,stock_list *sc,int taille)
+{
+;
+}
+
 int main(int argc, char **argv)
 {
     int sockfd;
-    socklen_t addrlen;
     char buf[1024];
+    char ip[20];
+    socklen_t addrlen;
 
     struct sockaddr_in my_addr;
-    memset (&my_addr, 0, sizeof (struct sockaddr_in));
     struct sockaddr_in client;
-    memset (&client, 0, sizeof (struct sockaddr_in));
 
     // check the number of args on command line
     if(argc != 3)
     {
-      printf("USAGE: %s source_address port_num\n", argv[0]);
-      exit(-1);
+        printf("Usage: %s ip_address local_port\n", argv[0]);
+	exit(-1);
     }
 
     // socket factory
-    if((sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    //int socket(int domain, int type, int protocol);
+    if((sockfd = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) == -1)
     {
         perror("socket");
-	      exit(EXIT_FAILURE);
+	exit(EXIT_FAILURE);
     }
 
     // init local addr structure and other params
     my_addr.sin_family      = AF_INET;
     my_addr.sin_port        = htons(atoi(argv[2]));
-    if(inet_pton(AF_INET,argv[1],&my_addr.sin_addr.s_addr) != 1)
-    {
-        perror("inet_pton\n");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
-    addrlen  = sizeof(struct sockaddr_in);
-    memset(buf,'\0',1024);
-
+    my_addr.sin_addr.s_addr = htons(atoi(argv[1]));
+    addrlen                 = sizeof(struct sockaddr_in);
+    
+	//int bind(int sockfd, const struct sockaddr *addr,socklen_t addrlen);
     // bind addr structure with socket
-    if(bind(sockfd, (struct sockaddr *) &my_addr, addrlen) == -1)
+    if(bind(sockfd,(struct sockaddr *)&my_addr,addrlen) == -1)
     {
-      perror("bind");
+      perror("blind");
       close(sockfd);
       exit(EXIT_FAILURE);
     }
-
-    // set the socket in passive mode (only used for accept())
-    // and set the list size for pending connection
-    if(listen(sockfd, 5) == -1)
-    {
-        perror("listen");
-	close(sockfd);
-	exit(EXIT_FAILURE);
-    }
-
-    printf("Waiting for incomming connection\n");
-    fd_set messockets; // ensemble de sockets à tout moment
-    FD_ZERO(&messockets);
-    FD_SET(sockfd,&messockets);
-	// Il faut à tout moment la valeur max des sockets d'un ensemble
-    int max = sockfd;
-    int i,sockfdnew, rcv;
     
-    /************* déclaration structures + initialisation stock_list **************/
+     // déclaration structures + initialisation stock_list 
     message_t mess;
-    stock_list stlist=malloc(sizeof(stock_list));
-    int taille_liste = 1;
-    stlist->hash= NULL;
-    stlist->liste_clients=NULL;
-    
+    taille_l t;
+    t.taille_actuelle = 1;
+    t.taille_max=10;
+    stock_list* stlist=malloc(sizeof(stock_list)*t.taille_max);
+    stlist[0].liste_clients=NULL;
+
     while(1)
     {
-		fd_set readfds = messockets; // celui qu'on utilise pour select (pck select modifie)
-		if(select(max + 1,&readfds,NULL,NULL,NULL) == -1)
-		{
-			perror("select");
-			exit(1);
-		}
-		//printf("après select\n");
-		for(i=0;i<max + 1; i++)
-		{
-			if(FD_ISSET(i,&readfds))
-			{
-				if(i==sockfd) // socket passive qui attend les co
-				{// accept
-					if((sockfdnew = accept(sockfd,(struct sockaddr *) &client, &addrlen ) ) == -1)
-					{
-						perror("accept");
-						close(sockfd);
-						exit(EXIT_FAILURE);
-					}
-					FD_SET(sockfdnew,&messockets);
-					if(sockfdnew > max)
-						max = sockfdnew;
-				}
-				else
-				{// recv
-					//printf("avant\n");
-					rcv = recv(i, buf, 1023, 0);
-					//printf("après\n");
-					if(rcv == -1)
-					{
-					  perror("recv");
-					  close(sockfd);
-					  exit(EXIT_FAILURE);
-					}
-					else if (rcv == 0) // fermer la connexion
-					{
-						close(i);
-						FD_CLR(i,&messockets);
-						printf("close connexion to %d \n" , i);
-					}
-					else
-					{
-						// print the received char
-						printf("%s\n",buf);			
-						mess = reception_msg_put
-						((unsigned char*)buf,(char)4);
-					        printf("valeur du type : %c",mess.type);
-					        traite_msg(mess,&stlist,taille_liste);
-						
-						
-						
-						
-									
-					}
-				}
-			}
-		}
-	}
+        /*ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+               struct sockaddr *src_addr, socklen_t *addrlen);*/
+        // reception de la chaine de caracteres
     
-    
-    
-    // fermeture des sockets
-    close(sockfd);
-    //close(sockfd2);
+        memset(buf,'\0',1024);
+        memset(ip,'\0',20);
+        if(recvfrom(sockfd,buf,1024,0,(struct sockaddr *)&client,&addrlen) == -1)
+        {
+            perror("recvfrom");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+            
+            //const char *inet_ntop(int af, const void *src,char *dst, socklen_t size);
+        if(inet_ntop(AF_INET,&client.sin_addr.s_addr,ip,20) == NULL)
+        {
+            perror("inet_ntop");
+	    close(sockfd);
+	    exit(EXIT_FAILURE);
+        }
 
+            // print the received char
+        printf("New message from %s : \n%s\n\n",ip,buf);
+        mess = reception_msg_put((unsigned char*)buf,(char)4);
+	printf("valeur du type : %c",mess.type);
+	traite_msg(mess,stlist,t);
+	
+	
+	{
+	    int sockfd;
+            socklen_t addrlen;
+            struct sockaddr_in dest;
+            //  printf("USAGE: %s @dest port_num string\n", argv[0]);
+            if((sockfd = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) == -1)
+            {
+                perror("socket");
+	        exit(EXIT_FAILURE);
+            }
+
+            // init remote addr structure and other params
+            dest.sin_family = AF_INET;
+            dest.sin_port   = htons(mess.client.port);
+            addrlen         = sizeof(struct sockaddr_in);
+            
+           if(inet_pton(AF_INET,mess.client.address_ip,&dest.sin_addr.s_addr) != 1)
+           {
+               perror("inet_pton");
+	       close(sockfd);
+	       exit(EXIT_FAILURE);
+           }
+           // Envoie le ACK 
+           if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
+           {
+               perror("sendto");
+	       close(sockfd);
+	       exit(EXIT_FAILURE);
+           }
+        }
+    }
+    // close the socket
+    close(sockfd);
     return 0;
 }
+
+
+
