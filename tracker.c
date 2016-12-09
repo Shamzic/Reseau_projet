@@ -218,8 +218,16 @@ int main(int argc, char **argv)
     // init local addr structure and other params
     my_addr.sin_family      = AF_INET;
     my_addr.sin_port        = htons(atoi(argv[2]));
-    my_addr.sin_addr.s_addr = htons(atoi(argv[1]));
+ //   my_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
     addrlen                 = sizeof(struct sockaddr_in);
+    
+    // get addr from command line and convert it
+    if(inet_pton(AF_INET,argv[1],&my_addr.sin_addr) != 1)
+    {
+        perror("inet_pton");
+	close(sockfd);
+	exit(EXIT_FAILURE);
+    }
     
 	//int bind(int sockfd, const struct sockaddr *addr,socklen_t addrlen);
     // bind addr structure with socket
@@ -246,13 +254,14 @@ int main(int argc, char **argv)
     
         memset(buf,'\0',1024);
         memset(ip,'\0',20);
+        printf("je vais attendre\n");
         if(recvfrom(sockfd,buf,1024,0,(struct sockaddr *)&client,&addrlen) == -1)
         {
             perror("recvfrom");
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-            
+        printf("jai eu\n");
             //const char *inet_ntop(int af, const void *src,char *dst, socklen_t size);
         if(inet_ntop(AF_INET,&client.sin_addr.s_addr,ip,20) == NULL)
         {
