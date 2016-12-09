@@ -281,7 +281,7 @@ int main(int argc, char **argv)
 
             // init remote addr structure and other params
             dest.sin_family = AF_INET;
-            dest.sin_port   = htons(mess.client.port);
+            dest.sin_port   = htons(atoi(argv[2]));
             addrlen         = sizeof(struct sockaddr_in);
             
            if(inet_pton(AF_INET,mess.client.address_ip,&dest.sin_addr.s_addr) != 1)
@@ -290,6 +290,9 @@ int main(int argc, char **argv)
 	       close(sockfd);
 	       exit(EXIT_FAILURE);
            }
+           // modifie le type du buf à renvoyer :
+           buf[0]=111;
+           
            // Envoie le ACK 
            if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
            {
