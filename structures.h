@@ -68,13 +68,19 @@ typedef struct s_message_rep_list
 
 typedef struct infos_s
 {
+    int sockfd_tracker;
     int sockfdtarget; // fd qui sert à faire les sockets
     int sockfdmy;
     struct sockaddr_in target;
+    struct sockaddr_in tracker;
     struct sockaddr_in my_addr;
     socklen_t addrlen_s;
     socklen_t addrlen_c;
     char * addr_dest;
+    char * addr_tracker;
+    unsigned short int port_listen;
+    unsigned short int port_tracker;
     unsigned short int port_dest;
     client_s *liste_clients;
+    unsigned char * hash;
 } infos;
