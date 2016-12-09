@@ -73,13 +73,16 @@ infos init_all(infos infos_com)
         close(infos_com.sockfd_tracker);
         exit(EXIT_FAILURE);
     }
-    // init connexion
     
-    if((infos_com.sockfd_tracker = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    // bind addr structure with socket
+    if(bind(infos_com.sockfd_tracker, (struct sockaddr *) &infos_com.tracker, addrlen) == -1)
     {
-        perror("socked");
-        exit(EXIT_FAILURE);
+      perror("bind");
+      close(infos_com.sockfd_tracker);
+      exit(EXIT_FAILURE);
     }
+    printf("connect to tracker on port\n", infos_com.port_tracker);
+    
     return infos_com;
 }
 
