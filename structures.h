@@ -5,10 +5,10 @@
 // structures vers le tracker 
 typedef struct s_client
 {
-    char type;
-    short int length; // 6 pour IPV4, 18 pour IPV6
+    short int length; // 6 pour IPV4, 16 pour IPV6
     short int port;
-    char adresse_ip [16];
+    char address_ip [16];
+    struct s_client * next;
 } client_s;
 
 
@@ -27,13 +27,7 @@ typedef struct s_message_t
     client_s client;
 } message_t;
 
-// structures pour message venant du tracker
-typedef struct s_liste_clients
-{
-    char type;
-    short int length;
-    client_s* liste;    
-} liste_c;
+
 
 
 // structures supplémentaires pour communication entre pairs 
@@ -82,4 +76,5 @@ typedef struct infos_s
     socklen_t addrlen_c;
     char * addr_dest;
     unsigned short int port_dest;
+    client_s *liste_clients;
 } infos;

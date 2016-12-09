@@ -12,6 +12,8 @@
 #include "structures.h"
 #include "messages.h"
 
+#define EXPIRATION 60
+
 // open listen port on port port_listen
 infos init_listen(short int port_listen, infos infos_com)
 {
@@ -122,14 +124,14 @@ void send_msg(infos infos_com,char * hash, char * action)
 // send the message
 void send_packet (infos infos_com, unsigned char* message)
 {
-    printf("%d \n\n",*(int*)(message+1));
-    if(sendto(infos_com.sockfdtarget, message, *(short int*)(message+1)+3, 0, NULL, 0) == -1)
+    if(sendto(infos_com.sockfdtarget, message, *(short int*)(message+1)+3, 0,(struct sockaddr*) &infos_com.target, sizeof(infos_com.target)) == -1)
     {
         perror("sendto");
         close(infos_com.sockfdtarget);
         close(infos_com.sockfdmy);
         exit(EXIT_FAILURE);
     }
+    printf("Message envoyé\n");
 }
 
 
@@ -170,10 +172,10 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 int test_response_tracker(infos infos_com , char * action, unsigned char * msg_send)
 {
     struct sockaddr trackeraddr;
-    socklen_t addrlen;
+    socklen_t addrlen = sizeof(trackeraddr);
     unsigned char msg_recv[1024];
     usleep(100); // sleep for x ms
-    socklen_t addrlen1 = sizeof(struct sockaddr_in);
+    //socklen_t addrlen1 = sizeof(struct sockaddr_in);
     struct sockaddr_in tracker;
     int sockfd_tracker;
     memset (&tracker, 0, sizeof (struct sockaddr_in));
@@ -188,24 +190,29 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
 
     // init local addr structure and other params
     tracker.sin_family      = AF_INET;
-    tracker.sin_port        = infos_com.my_addr.sin_port;
+    tracker.sin_port        = infos_com.target.sin_port;
     tracker.sin_addr.s_addr = htonl(INADDR_ANY);
     
-    
+    /*
     // bind addr structure with socket
     if(bind(sockfd_tracker, (struct sockaddr *) &tracker, addrlen1) == -1)
     {
-      perror("bind");
+      perror("bind test_response_tracker");
       close(sockfd_tracker);
       exit(EXIT_FAILURE);
     }
-    
+    */
     
     // wait for response
     if(recvfrom(sockfd_tracker, msg_recv, 1024, MSG_DONTWAIT,&trackeraddr,&addrlen) == -1)
     {
         if ( errno == EAGAIN || errno == EWOULDBLOCK) // there were no packet
+        {
+            printf("Aucune réponse reçue\n");
+            close(sockfd_tracker);
+            sleep(1);
             return -1;
+        }
         perror("recv");
         close(infos_com.sockfdmy);
         close(infos_com.sockfdtarget);
@@ -282,13 +289,87 @@ unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char 
         // begin with comunicate with tracker
         printf("Send message to tracker\n");
         msg_send = send_msg_tracker(infos_com,hash,action);
+        nanosleep(
         msg_received = test_response_tracker(infos_com, action, msg_send);
-        if(strcmp(action,"gtt")==0)
-            action[1]='e';
-        printf("%s %s from %s port %d\n",action,hash,infos_com.addr_dest,infos_com.port_dest);
     }
+    if(strcmp(action,"gtt")==0)
+        action[1]='e';
+    printf("%s %s from %s port %d\n",action,hash,infos_com.addr_dest,infos_com.port_dest);
     return msg_send;
 }
+
+
+
+
+// analyze of message ACKput
+infos analyze_ack_get(unsigned char*message, infos infos_com)
+{
+    client_s *liste_clients = NULL;
+    client_s *new_client;
+    int length = strlen( (char*) message);
+    int index = 3;
+    int i;
+    while (index < length)
+    {
+        new_client = malloc(sizeof(client_s));
+        index ++; // jump type
+        new_client->length = buf_to_s_int(message+index) ; // type
+        index +=2;
+        new_client->port = buf_to_s_int(message +index);
+        index +=2;
+        for(i = 0; i < new_client->length ;i++)
+            new_client->address_ip[i] = message[index+i];
+        i+=new_client->length;
+        new_client->next = liste_clients;
+        liste_clients = new_client;
+    }
+    infos_com.liste_clients = liste_clients;
+    return infos_com;
+}
+
+// analyze messages from tracker
+infos analyze_messages_tracker(unsigned char *message,infos infos_com)
+{
+    client_s *liste;
+    if(message[0] == 111) // message ACKPUT
+        ; // nothing to do ( test was made in test_rep)
+    else if(message[0] == 115)
+        ; // nothing to do ( test was made in test_rep)
+    else if(message[0] == 113) // message ACKGET
+        infos_com = analyze_ack_get(message,infos_com);
+    else
+    {
+        printf("wrong message");
+        exit(EXIT_FAILURE);
+    }
+    // print every client
+    liste = infos_com->liste_clients;
+    while(liste != NULL)
+    {
+        printf("IP : %s port %d",liste->address_ip, liste->port);
+    }
+    
+    return infos_com;
+}
+
+void send_keep_alive( void * info)
+{
+    infos infos_com = (infos *) info;
+    int msg_received = -1;
+    while(1)
+    {
+        sleep(EXPIRATION);
+        // send keep alive to tracker
+        while(msg_received == -1)
+        {
+            printf("Send keep_alive to tracker\n");
+            msg_send = send_msg_tracker(infos_com,hash,"keep_alive");
+            msg_received = test_response_tracker(infos_com, "keep_alive", msg_send);
+        }
+    }
+    
+}
+
 
 int main(int argc, char **argv)
 {
@@ -300,6 +381,7 @@ int main(int argc, char **argv)
     struct sockaddr enter_co;
     socklen_t addrlen;
     unsigned char * message;
+    pthread_t thread_keep_alive;
     
     // check the number of args on command line
     if(argc != 6)
@@ -322,12 +404,19 @@ int main(int argc, char **argv)
     // communicate with tracker
     message = communicate_tracker(infos_com,hash,action);
     
-    
-    // keep_alive (put et get fait dans communicate_tracker)
-    if(strcmp(action,"keep_alive") == 0 ) 
+    // if put then make thread which send keep_alive to tracker
+    if(strcmp(action,"keep_alive") == 0 )
     {
-        message = communicate_tracker(infos_com,hash,action);
+        thread_keep_alive = malloc( sizeof(pthread_t));
+        if(pthread_create(thread_keep_alive, NULL, send_keep_alive,infos_com) == -1)
+        {
+            perror("pthread_create");
+            exit(EXIT_FAILURE);
+        }
     }
+    
+    
+    
     else // communication client-client : GET, REP_GET, LIST, REP_LISTE
     {
         // wait for messages
@@ -340,6 +429,20 @@ int main(int argc, char **argv)
         }
     }
     printf("%s\n",message);
+    // END
+    
+    if(pthread_cancel(thread_keep_alive) == -1)
+    {
+        perror("pthread_cancel");
+        exit(EXIT_FAILURE);
+    }
+    
+    if(pthread_join(thread_keep_alive,NULL) != 0)
+    {
+        perror("pthread_join");
+        exit(EXIT_FAILURE);
+    }
+    
     /*
     // communicate with client
     else if(strcmp(action,"get") == 0 || strcmp(action,"list") == 0 ) 
