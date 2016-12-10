@@ -13,7 +13,7 @@
 #include "structures.h"
 #include "messages.h"
 
-#define EXPIRATION 60
+#define EXPIRATION 5
 
 
 
@@ -64,9 +64,10 @@ infos init_all(infos infos_com)
 
     // init remote addr structure and other params
     infos_com.tracker.sin_family = AF_INET;
-    infos_com.tracker.sin_port   = infos_com.port_tracker;
+    infos_com.tracker.sin_port   = htons(infos_com.port_tracker);
 
     // get addr from command line and convert it
+    printf("l'adresse du tracker %s et son port %d et le sockfd %d \n",infos_com.addr_tracker, infos_com.tracker.sin_port, infos_com.sockfd_tracker); 
     if(inet_pton(AF_INET,infos_com.addr_tracker,&infos_com.tracker.sin_addr) != 1)
     {
         perror("inet_pton");
@@ -74,14 +75,8 @@ infos init_all(infos infos_com)
         exit(EXIT_FAILURE);
     }
     
-    // bind addr structure with socket
-    if(bind(infos_com.sockfd_tracker, (struct sockaddr *) &infos_com.tracker, addrlen) == -1)
-    {
-      perror("bind");
-      close(infos_com.sockfd_tracker);
-      exit(EXIT_FAILURE);
-    }
-    printf("connect to tracker on port\n", infos_com.port_tracker);
+    
+    printf("connect to tracker on port %d\n", infos_com.port_tracker);
     
     return infos_com;
 }
@@ -139,6 +134,7 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
         perror("Action ");
         exit(EXIT_FAILURE);
     }
+    //printf("send to %d on addr %s with sockfd : %d\n", htons(infos_com.tracker.sin_port),infos_com.addr_tracker,infos_com.sockfd_tracker);
     send_packet(msg_send, infos_com.sockfd_tracker, infos_com.tracker); // send the packet to tracker
     return msg_send;
 }
@@ -154,6 +150,7 @@ void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
         exit(EXIT_FAILURE);
     }
     printf("Message envoyé\n");
+    sleep(2);
 }
 
 
@@ -387,6 +384,7 @@ void *send_keep_alive( void * info)
         {
             printf("Send keep_alive to tracker\n");
             msg_send = send_msg_tracker(*infos_com,infos_com->hash,"keep_alive");
+            usleep(100);
             msg_received = test_response_tracker(*infos_com, "keep_alive", msg_send);
         }
     }
