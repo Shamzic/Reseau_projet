@@ -1,0 +1,49 @@
+\" COMMENT LIRE CETTE PAGE AVEC LA COMMANDE "man exo1" ?
+.\" 1) Compresser ce fichier au format .gz
+.\" 2) sudo cp exo1.7.gz /usr/share/man/man7
+.\" 3) man exo1
+
+
+.TH EXO1.1 1 "DECEMBRE 2016" Linux "Manuel utilisateur"
+
+
+.SH NAME
+exo1 \- programme de l'exercice 1.1
+.SH SYNOPSIS
+.B exo1.1 [-t
+.I taille-fenetre
+.B ]
+.I fichier
+.B ...
+
+
+.SH DESCRIPTION
+.B exo1.1
+affiche les chunks d'un fichier. Par défaut la taille de la fenetre est 
+fixée à 1024 octets mais elle peut être modifiée. La fonction de hachage
+utilisée est la
+.BR sha256
+.
+
+
+.SH OPTIONS
+.IP "-t taille-fenetre"
+Permet de modifier la taille de la fenêtre pour les hashs de chunk.
+
+.SH FICHIERS
+.I ./exo1.c
+.RS
+Fichier de code général.
+.RE
+.I ./sha256.c
+.RS
+Fichier de la fonction de hashage sha256.
+
+
+.SH AUTEUR
+Simon Hamery <simon.hamery2@etu.unistra.fr>
+
+.SH "VOIR AUSSI"
+.BR gloup (1),
+.BR plaf (1),
+.BR plouf (5).
