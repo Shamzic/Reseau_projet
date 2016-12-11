@@ -188,7 +188,7 @@ void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
     {
        
        
-       
+       ;
        
        
     }
