@@ -55,19 +55,15 @@ infos init_all(infos infos_com)
     
     // init connection to tracker //
     
-    
     if((infos_com.sockfd_tracker = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         perror("socket");
         exit(EXIT_FAILURE);
     }
-
+    
     // init remote addr structure and other params
     infos_com.tracker.sin_family = AF_INET;
     infos_com.tracker.sin_port   = htons(infos_com.port_tracker);
-
-    // get addr from command line and convert it
-    printf("l'adresse du tracker %s et son port %d et le sockfd %d \n",infos_com.addr_tracker, infos_com.tracker.sin_port, infos_com.sockfd_tracker); 
     if(inet_pton(AF_INET,infos_com.addr_tracker,&infos_com.tracker.sin_addr) != 1)
     {
         perror("inet_pton");
@@ -75,6 +71,16 @@ infos init_all(infos infos_com)
         exit(EXIT_FAILURE);
     }
     
+    infos_com.target.sin_family = AF_INET;
+    infos_com.target.sin_port   = htons(0);
+    infos_com.target.sin_addr.s_addr = htonl(INADDR_ANY);
+    
+    if(bind(infos_com.sockfd_tracker, (struct sockaddr *) &infos_com.target, addrlen) == -1)
+    {
+      perror("bind sockfd_tracker");
+      close(infos_com.sockfd_tracker);
+      exit(EXIT_FAILURE);
+    }
     
     printf("connect to tracker on port %d\n", infos_com.port_tracker);
     
@@ -95,9 +101,9 @@ unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char 
         msg_send = send_msg_tracker(infos_com,hash,action);
         usleep(100); // sleep for x ms
         msg_received = test_response_tracker(infos_com, action, msg_send);
+        if(strcmp(action,"gtt")==0)
+            action[1]='e';
     }
-    if(strcmp(action,"gtt")==0)
-        action[1]='e';
     printf("%s %s from %s port %d\n",action,hash,infos_com.addr_tracker,infos_com.port_tracker);
     return msg_send;
 }
@@ -131,7 +137,7 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
         errno = EINVAL;
         close(infos_com.sockfdmy);
         close(infos_com.sockfd_tracker);
-        perror("Action ");
+        perror("Action :-( ");
         exit(EXIT_FAILURE);
     }
     //printf("send to %d on addr %s with sockfd : %d\n", htons(infos_com.tracker.sin_port),infos_com.addr_tracker,infos_com.sockfd_tracker);
@@ -174,7 +180,7 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
     }
     if(strcmp(action,"get") == 0)
         action[1] = 't';
-    
+    printf("\n\nune réponse à été reçue\n\n");
     // test of message received
     return test_rep( action, msg_send, msg_recv);
 }
@@ -183,7 +189,7 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
 int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
 {
     short int msg_send_length = buf_to_s_int(msg_send +1) + 3; // length in message + 3 (type + length)
-    
+    printf("entre dans le test\n");
     // communication with clients
     if(strcmp(action,"gtt") == 0) // message get client
     {
@@ -193,6 +199,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv    = s_int_to_buf( msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+        return 0;
     }
     else if(strcmp(action,"list") == 0) // message list client
     {
@@ -202,6 +209,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+        return 0;
     }
     
     // communication with tracker
@@ -210,8 +218,10 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 111) // test if good type of message
             return -1;
         msg_recv[0] = 110; // change type to compare with msg_send
+        printf("regarde %d\n",u_strncmp(msg_send,msg_recv,msg_send_length));
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+        return 0;
     }
     else if(strcmp(action,"get") == 0) // message get tracker
     {
@@ -221,6 +231,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+        return 0;
     }
     if(strcmp(action,"keep_alive") == 0) // message keep_alive tracker
     {
@@ -229,85 +240,11 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv[0] = 114; // change type to compare with msg_send
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+        return 0;
     }
     
     return -1;
 }
-
-
-
-
-
-/*
-
-// open listen port on port port_listen
-infos init_listen(short int port_listen, infos infos_com)
-{
-    socklen_t addrlen = sizeof(struct sockaddr_in);    
-    memset (&infos_com.my_addr, 0, sizeof (struct sockaddr_in));
-    
-    if((infos_com.sockfdmy = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        perror("socked");
-        exit(EXIT_FAILURE);
-    }
-
-    // init local addr structure and other params
-    infos_com.my_addr.sin_family      = AF_INET;
-    infos_com.my_addr.sin_port        = port_listen;
-    infos_com.my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
-    
-    // bind addr structure with socket
-    if(bind(infos_com.sockfdmy, (struct sockaddr *) &infos_com.my_addr, addrlen) == -1)
-    {
-      perror("bind");
-      close(infos_com.sockfdmy);
-      exit(EXIT_FAILURE);
-    }
-    printf("listening on %d\n", port_listen);
-    return infos_com;
-}
-    
-// open connexion to address addr_connect port port_send
-infos init_connexion(char * addr_connect, short int port_send,infos infos_com)
-{    
-    memset (&infos_com.target, 0, sizeof (struct sockaddr_in)); // remplit les bytes sur lesquels pointe &server avec des 0
-    
-    
-    if((infos_com.sockfdtarget = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-
-    // init remote addr structure and other params
-    infos_com.target.sin_family = AF_INET;
-    infos_com.target.sin_port   = port_send;
-
-    // get addr from command line and convert it
-    if(inet_pton(AF_INET,addr_connect,&infos_com.target.sin_addr) != 1)
-    {
-        perror("inet_pton");
-        close(infos_com.sockfdtarget);
-        exit(EXIT_FAILURE);
-    }
-    // init connexion
-    
-    if((sockfd_tracker = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        perror("socked");
-        exit(EXIT_FAILURE);
-    }
-    infos_com.sockfdtracker = sockfdtracker;
-    
-    
-    return infos_com;
-}
-
-*/
-
-
 
 
 
@@ -428,7 +365,7 @@ int main(int argc, char **argv)
     
     // communicate with tracker
     message = communicate_tracker(infos_com,hash,action);
-    
+    printf("\t COMMUNICATE WITH TRACKER END\n");
     // if put then make thread which send keep_alive to tracker
     if(strcmp(action,"put") == 0 )
     {
