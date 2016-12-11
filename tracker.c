@@ -122,7 +122,7 @@ message_t reception_msg_put(unsigned char * buf,char IP_TYPE)
   message.hash.type = buf[3];                  // Type du msg_hash
   message.hash.length = buf_to_s_int(buf+4);   // Taille du msg_hash
   memcpy(buf+6,message.hash.hash,32);          // Hash
-  //message.client.type = buf[38];               // Type du client TOUJOURS 55
+  //message.client.type = buf[38];             // Type du client TOUJOURS 55 donc osef
   message.client.length = buf_to_s_int(buf+39); // Taille du client
   message.client.port = buf_to_s_int(buf+41);                  // Port du client 
   memcpy(buf+43,message.client.address_ip,length_address);  // Addresse du client
@@ -157,7 +157,7 @@ int positionHash(char* hash, stock_list *sc,int taille) // Cherche la position d
     return i;
 }
 
-void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msgs
+char traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msgs
 {                                                     // recu par le trackers
     if( mess.type == 110 )
     {
@@ -174,6 +174,7 @@ void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
             strcpy(sc[t.taille_actuelle-1].hash,mess.hash.hash);
             sc[t.taille_actuelle-1].liste_clients=NULL;
             sc[t.taille_actuelle-1].liste_clients=ajouterEnTete(sc[t.taille_actuelle-1].liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
+        
         }
         else if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
         // hash dans tab => ajout à la suite
@@ -182,19 +183,17 @@ void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
             sc[pos].liste_clients=ajouterEnFin(sc[pos].liste_clients,
             mess.client.length,mess.client.port,mess.client.address_ip);
         }
+        return 110;
     }
     
-    if( mess.type == 112 )
+    else if( mess.type == 112 )
     {
-       
-       
-       ;
-       
-       
+        if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
+    	{   
+       		return 112;
+    	}
     }
-    
-    
-    
+    return 0;
 }
 
 void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
@@ -203,6 +202,53 @@ void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
     buf[0]=111;
     // Envoie le ACK 
     if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
+    {
+        perror("sendto");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+}
+
+// char * retour = malloc(100*sizeof(client_s));
+int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP_TYPE,taille_l t)
+{
+    int pos = positionHash(hash,stlist,t.taille_actuelle); 
+    // A priori on met max 100 clients          
+    int taille_clients = 0;
+    client_s* temp = stlist[pos].liste_clients;
+    int i=0;
+    short int length;
+    if(IP_TYPE == 4)
+        length = 4;
+    else
+        length = 16;
+    while ( temp != NULL );
+    {
+        retour[i]=55;
+        i=i+1;
+        retour[i]=2+length; // longueur du client
+        i=i+2;
+        retour[i]=temp->port; // port du client
+        i=i+2;
+        memcpy(retour+i,temp->address_ip,length);
+        taille_clients = taille_clients + length + 3;
+        temp= temp->next;
+    }
+    return taille_clients;
+}
+//ack_get(sockfd,client,buf,addrlen,stlist,t,(char)4);
+void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l t,char IP_TYPE)
+{
+    char * retour = malloc(36+100*sizeof(client_s));
+    retour[0]=113;
+    // PREMIERE ETAPE copier la partie hash dans le retour
+    memcpy(retour,buf+3,35);
+    // DEUXIEME ETAPE concatener la liste des clients dans le retour
+    char * retour2 = malloc(100*sizeof(client_s));
+    int taille_clients = creer_char_liste_client(retour,mess.hash.hash,stlist,IP_TYPE,t);
+    strncat(retour,retour2,taille_clients);         
+    // TROISIEME ETAPE Envoie le ACK au client qui l'a demandé
+    if(sendto(sockfd,retour,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
     {
         perror("sendto");
         close(sockfd);
@@ -294,49 +340,18 @@ int main(int argc, char **argv)
         printf("New message from %s : \n",ip);
         mess = reception_msg_put((unsigned char*)buf,(char)4);
 	    printf("valeur du type : %d",mess.type);
-	    traite_msg(mess,stlist,t);
-	
-	
-	
-	/*{
-	   // int sockfd;
-            //socklen_t addrlen;
-            struct sockaddr_in dest;
-            //  printf("USAGE: %s @dest port_num string\n", argv[0]);
-
-            if((sockfd = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) == -1)
-            {
-                perror("socket");
-	        exit(EXIT_FAILURE);
-            }
-
-            // init remote addr structure and other params
-            dest.sin_family = AF_INET;
-            dest.sin_port   = htons(atoi(argv[2]));
-            addrlen         = sizeof(struct sockaddr_in);
-            
-           if(inet_pton(AF_INET,"127.0.0.1",&dest.sin_addr.s_addr) != 1) //mess.client.address_ip
-           {
-               perror("inet_pton");
-	       close(sockfd);
-	       exit(EXIT_FAILURE);
-           }
-           // modifie le type du buf à renvoyer :
-           buf[0]=111;
-           
-           // Envoie le ACK 
-           if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
-           {
-               perror("sendto");
-	       close(sockfd);
-	       exit(EXIT_FAILURE);
-           }
-        }*/
+	    char retour = traite_msg(mess,stlist,t);
         
        printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
 
-        
-        ack_put(sockfd,client,buf,addrlen); //(char*)&client.sin_addr.s_addr
+        if(retour == 110)
+        {
+            ack_put(sockfd,client,buf,addrlen); //(char*)&client.sin_addr.s_addr
+        }
+        else if (retour == 112)
+        {
+            ack_get(sockfd,client,buf,addrlen,stlist,mess,t,(char)4);
+        }
         sleep(1);
         // => socket , sockaddr de destination , port , 
         // , address ip destionation , taille addrlen , message à envoyer
