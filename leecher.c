@@ -22,8 +22,8 @@
 #include "sha256.h"
 
 #define EXPIRATION 5
-#define chunk_size 10
-#define FRAGMENT_TAILLE 2
+#define chunk_size 100000
+#define FRAGMENT_TAILLE 1000
 
 
 
@@ -71,7 +71,7 @@ void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
         exit(EXIT_FAILURE);
     }
     usleep(1000);
-    printf("Message envoyé\n");
+  //  printf("Message envoyé\n");
 }
 
 
@@ -171,7 +171,9 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv    = s_int_to_buf( msg_recv, buf_to_s_int(msg_send + 1), 1);
         if((test=u_strncmp(msg_send,msg_recv,msg_send_length)) != 0) // strings different
         {
-            printf("test %d\n",test);
+            //printf("j'attends\n");
+            //sleep(1);
+            //printf("test %d\n",test);
             return -1;
         }
         msg_recv    = s_int_to_buf(msg_recv, tmp_length, 1);
@@ -196,9 +198,9 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
 
 unsigned char * seek_response(unsigned char * message, int sockfd,struct sockaddr_in addr,char * action)
 {
-    unsigned char *msg_received = malloc(1024);
+    unsigned char *msg_received = malloc(1082);
     socklen_t addrlen = sizeof(struct sockaddr_in);
-    if(recvfrom(sockfd, msg_received, 1024, MSG_DONTWAIT,(struct sockaddr *)&addr,&addrlen) == -1)
+    if(recvfrom(sockfd, msg_received, 1082, MSG_DONTWAIT,(struct sockaddr *)&addr,&addrlen) == -1)
     {
         if ( errno == EAGAIN || errno == EWOULDBLOCK) // there were no packet
         {
@@ -213,7 +215,7 @@ unsigned char * seek_response(unsigned char * message, int sockfd,struct sockadd
     // test if type of response is good
     if(test_rep(action,message,msg_received)==-1) // wrong hash
     {
-        printf("Wrong msg %d\n",msg_received[0]);
+        printf("Wrong msg \n");
         free(msg_received);
         return NULL;
     }
@@ -260,7 +262,11 @@ int write_chunk(unsigned char * response,int fd,short int fragment)
         return -1;
     
     // write chunk into file
-    
+    if(size_fragment != 1000)
+    {
+        printf("size du frag %d\n",size_fragment);
+        sleep(10);
+    }
     if(write(fd, response + 3 + 3 + 32 + 3 + 32 + 2 + 1 + 6, size_fragment) == -1)
     {
         perror("write");
@@ -319,7 +325,7 @@ int main(int argc, char **argv)
         index = 0;
         while (index != table.tab_index_chunks[table.index])
         {
-            printf("ask for fragment %d \n",index);
+    //        printf("ask for fragment %d \n",index);
             response = NULL;
             // make message get
             request = create_message_get_peer(infos_com.hash,table.tab_chunks[table.index],index );
@@ -338,14 +344,14 @@ int main(int argc, char **argv)
             }
             
             free(request);
-            printf("fragment %d reçu\n",index);
+       //     printf("fragment %d reçu\n",index);
             if(response != NULL)
                 index ++;
             free(response);
             
         }
+        printf("end ask chunk %d\n",table.index);
         table.index ++;
-        printf("end ask\n");
     }
     
     if(close(fd) == -1)
@@ -353,6 +359,8 @@ int main(int argc, char **argv)
         perror("close");
         exit(EXIT_FAILURE);
     }
+    
+    printf("il y avait %d chunks\n",table.nb_chunks);
     for(i=0;i<table.nb_chunks;i++)
         free(table.tab_chunks[i]);
     free(table.tab_chunks);

@@ -19,8 +19,8 @@
 #include "sha256.h"
 
 #define EXPIRATION 5
-#define chunk_size 10
-#define FRAGMENT_TAILLE 2
+#define chunk_size 1000000 
+#define FRAGMENT_TAILLE 1000 // data = 0 à 1000
 
 // init listen port
 infos init_listen(infos infos_com)
@@ -211,10 +211,7 @@ unsigned char * rep_list(unsigned char * msg,infos infos_com)
             exit(EXIT_FAILURE);
         }
         pos += 32;
-        if(chunk_size % FRAGMENT_TAILLE != 0) 
-            us_int_to_buf(message,chunk_size/FRAGMENT_TAILLE +1,pos);
-        else
-            us_int_to_buf(message,chunk_size/FRAGMENT_TAILLE,pos);
+        us_int_to_buf(message,infos_com.tab_index_chunks[i],pos);
         pos +=2;
     }
     return message;
@@ -256,7 +253,9 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
     chunk_index = pos_hash((char*)hash_chunk,(char**) infos_com.tab_chunks,infos_com.nb_chunks);
     if(chunk_index == -1)
     {
-        printf("Mauvais chunk\n");
+        printf("Mauvais chunk :");
+        print_hash(hash_chunk);
+        printf("\n");
         return NULL;
     }
     
@@ -272,6 +271,8 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
         perror("lseek");
         exit(EXIT_FAILURE);
     }
+    printf("pour le chunk %d et index %d se place à %d\n",chunk_index,index,chunk_index * chunk_size + index * FRAGMENT_TAILLE);
+    //sleep(1);
     if((nb_cars_lus=read(fd,chunk,FRAGMENT_TAILLE)) == -1)
     {
         perror("read");
@@ -279,7 +280,8 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
     }
     max_index = infos_com.tab_index_chunks[chunk_index];
     
-    
+    if(nb_cars_lus < 1000)
+        printf("nb_cars_lus %d\n",nb_cars_lus);
     message =create_message_rep_get( hash, hash_chunk, chunk, index, max_index,nb_cars_lus);
     free(chunk);
     free(hash_chunk);
@@ -342,7 +344,7 @@ int main(int argc, char **argv)
     infos infos_com;
     infos_com.port_listen = atoi(argv[1]);
     unsigned char * file_name = (unsigned char*)argv[2];
-    unsigned char buf[1024];
+    unsigned char buf[1082]; // 3 +3+32+ 3+32+2+ 3+4+data(0 à 1000)
     socklen_t addrlen = sizeof(struct sockaddr);
     unsigned char * message;
     int i;
@@ -361,13 +363,13 @@ int main(int argc, char **argv)
     }
     printf("]\n");
     
-    
+    printf("il y a %d chunks \n",infos_com.nb_chunks);
     
     // wait for connexion
     while(1) // communication client-client : GET, REP_GET, LIST, REP_LISTE
     {
         // wait for messages
-        if(recvfrom(infos_com.sockfdmy, buf, 1024, 0,(struct sockaddr*)&infos_com.target,&addrlen) == -1)
+        if(recvfrom(infos_com.sockfdmy, buf, 1082, 0,(struct sockaddr*)&infos_com.target,&addrlen) == -1)
         {
             perror("recv");
             close(infos_com.sockfdmy);
@@ -385,7 +387,6 @@ int main(int argc, char **argv)
         message = traitement_message(infos_com,buf);
         if(message !=NULL)
         {
-            printf("type %d\n",message[0]);
             send_packet ( message, infos_com.sockfdtarget,infos_com.target);
             printf("Message envoyé\n");
         }
