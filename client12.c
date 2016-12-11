@@ -199,7 +199,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 103) // test if good type of message
             return -1;
         msg_recv[0] = 102; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg,recv, buf_to_s_int(msg_send + 1), 1);
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
     }
@@ -218,7 +218,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 113) // test if good type of message
             return -1;
         msg_recv[0] = 112; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg,recv, buf_to_s_int(msg_send + 1), 1);
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
     }

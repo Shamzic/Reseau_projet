@@ -183,11 +183,40 @@ void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
             mess.client.length,mess.client.port,mess.client.address_ip);
         }
     }
+    
+    if( mess.type == 112 )
+    {
+       
+       
+       
+       
+       
+    }
+    
+    
+    
 }
 
-void ack_put(message_t mess,stock_list *sc,int taille)
+void ack_put(int sockfd,struct sockaddr_in dest, char * port, char * address_destination, char * buf)
 {
-;
+    dest.sin_family = AF_INET;
+    dest.sin_port   = htons(atoi(port));
+    socklen_t addrlen = sizeof(struct sockaddr_in);
+    if(inet_pton(AF_INET,address_destination,&dest.sin_addr.s_addr) != 1) //mess.client.address_ip
+    {
+        perror("inet_pton");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+    // modifie le type du buf à renvoyer :
+    buf[0]=111;
+    // Envoie le ACK 
+    if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
+    {
+        perror("sendto");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
 }
 
 int main(int argc, char **argv)
@@ -218,7 +247,7 @@ int main(int argc, char **argv)
     // init local addr structure and other params
     my_addr.sin_family      = AF_INET;
     my_addr.sin_port        = htons(atoi(argv[2]));
- //   my_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
+    // my_addr.sin_addr.s_addr = htonl(atoi(argv[1]));
     addrlen                 = sizeof(struct sockaddr_in);
     
     // get addr from command line and convert it
@@ -266,22 +295,24 @@ int main(int argc, char **argv)
         if(inet_ntop(AF_INET,&client.sin_addr.s_addr,ip,20) == NULL)
         {
             perror("inet_ntop");
-	    close(sockfd);
-	    exit(EXIT_FAILURE);
+	        close(sockfd);
+	        exit(EXIT_FAILURE);
         }
 
             // print the received char
         printf("New message from %s : \n%s\n\n",ip,buf);
         mess = reception_msg_put((unsigned char*)buf,(char)4);
-	printf("valeur du type : %c",mess.type);
-	traite_msg(mess,stlist,t);
+	    printf("valeur du type : %c",mess.type);
+	    traite_msg(mess,stlist,t);
 	
 	
-	{
-	    int sockfd;
-            socklen_t addrlen;
+	
+	/*{
+	   // int sockfd;
+            //socklen_t addrlen;
             struct sockaddr_in dest;
             //  printf("USAGE: %s @dest port_num string\n", argv[0]);
+
             if((sockfd = socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) == -1)
             {
                 perror("socket");
@@ -293,7 +324,7 @@ int main(int argc, char **argv)
             dest.sin_port   = htons(atoi(argv[2]));
             addrlen         = sizeof(struct sockaddr_in);
             
-           if(inet_pton(AF_INET,mess.client.address_ip,&dest.sin_addr.s_addr) != 1)
+           if(inet_pton(AF_INET,"127.0.0.1",&dest.sin_addr.s_addr) != 1) //mess.client.address_ip
            {
                perror("inet_pton");
 	       close(sockfd);
@@ -309,7 +340,15 @@ int main(int argc, char **argv)
 	       close(sockfd);
 	       exit(EXIT_FAILURE);
            }
-        }
+        }*/
+        
+        struct sockaddr_in dest;
+        printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
+
+        
+        ack_put(sockfd,dest,argv[2],inet_ntoa(client.sin_addr),buf); //(char*)&client.sin_addr.s_addr
+        // => socket , sockaddr de destination , port , 
+        // , address ip destionation , taille addrlen , message à envoyer
     }
     // close the socket
     close(sockfd);
