@@ -197,17 +197,8 @@ void traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
     
 }
 
-void ack_put(int sockfd,struct sockaddr_in dest, char * port, char * address_destination, char * buf)
+void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
 {
-    dest.sin_family = AF_INET;
-    dest.sin_port   = htons(atoi(port));
-    socklen_t addrlen = sizeof(struct sockaddr_in);
-    if(inet_pton(AF_INET,address_destination,&dest.sin_addr.s_addr) != 1) //mess.client.address_ip
-    {
-        perror("inet_pton");
-        close(sockfd);
-        exit(EXIT_FAILURE);
-    }
     // modifie le type du buf à renvoyer :
     buf[0]=111;
     // Envoie le ACK 
@@ -299,10 +290,10 @@ int main(int argc, char **argv)
 	        exit(EXIT_FAILURE);
         }
 
-            // print the received char
-        printf("New message from %s : \n%s\n\n",ip,buf);
+            // print the received ip
+        printf("New message from %s : \n",ip);
         mess = reception_msg_put((unsigned char*)buf,(char)4);
-	    printf("valeur du type : %c",mess.type);
+	    printf("valeur du type : %d",mess.type);
 	    traite_msg(mess,stlist,t);
 	
 	
@@ -342,11 +333,11 @@ int main(int argc, char **argv)
            }
         }*/
         
-        struct sockaddr_in dest;
-        printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
+       printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
 
         
-        ack_put(sockfd,dest,argv[2],inet_ntoa(client.sin_addr),buf); //(char*)&client.sin_addr.s_addr
+        ack_put(sockfd,client,buf,addrlen); //(char*)&client.sin_addr.s_addr
+        sleep(1);
         // => socket , sockaddr de destination , port , 
         // , address ip destionation , taille addrlen , message à envoyer
     }
