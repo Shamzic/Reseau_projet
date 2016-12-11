@@ -1,9 +1,9 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
-unsigned char* create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk);
+unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk, short int index);
 
-unsigned char* create_message_rep_get(unsigned char * hash_file,unsigned char * hash_chunk,char * chunk,short int index, short int max_index);
+unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char * hash_chunk,char * chunk,short int index, short int max_index,short int nb_cars_lus);
 
 unsigned char* create_message_list(unsigned char * hash_file);
 
@@ -38,5 +38,9 @@ unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin);
 unsigned char * int_to_buf(unsigned char * buf,int i,int begin);
 
 int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_rcv);
+
+void print_hash(unsigned char hash[]);
+
+unsigned char * hash_to_char( char* hash);
 
 #endif

@@ -83,4 +83,16 @@ typedef struct infos_s
     unsigned short int port_dest;
     client_s *liste_clients;
     unsigned char * hash;
+    unsigned char ** tab_chunks;
+    int * tab_index_chunks;
+    int nb_chunks;
+    unsigned char * filename;
+    unsigned char * dest_file;
 } infos;
+typedef struct s_tab_chunks
+{
+    short int nb_chunks;
+    unsigned char ** tab_chunks;
+    short int * tab_index_chunks;
+    short int index;
+} table_chunks;

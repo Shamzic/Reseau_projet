@@ -17,13 +17,13 @@
 
 
 // message GET between 2 clients
-unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk)
+unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char * hash_chunk, short int index)
 {
-    unsigned char *buffer=malloc(74); // ou 74 ? 
+    unsigned char *buffer=malloc(75);
     short int length;
     // create the message
     buffer[0] = 100 ; // set type
-    length    = 32 + 32;
+    length    = 3 + 32 + 3 + 32 + 2;
     buffer    = s_int_to_buf(buffer,length, 1);
     // hash file
     buffer[3] = 50;
@@ -33,6 +33,7 @@ unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char
     buffer[38] = 51;
     buffer = s_int_to_buf(buffer,32,39);
     memcpy(buffer+41,hash_chunk,32);
+    buffer      = s_int_to_buf(buffer,index,73);
     return buffer;
 }
 
@@ -40,14 +41,13 @@ unsigned char *  create_message_get_peer(unsigned char * hash_file,unsigned char
 
 // message REP_GET
 // chunk doit finir par un \0
-unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char * hash_chunk,char * chunk,short int index, short int max_index)
+unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char * hash_chunk,char * chunk,short int index, short int max_index,short int nb_cars_lus)
 {
-    short int length_chunk = u_strlen(hash_chunk) ;
-    unsigned char *buffer=malloc(74+length_chunk+ 7); // ou 74 ? 
+    unsigned char *buffer=malloc( 3+3+32+3+32+2+1+2+2+2+nb_cars_lus ); // 82 + nb_cars_lus
     short int length;
     // create the message
-    buffer[0] = 100 ; // set type
-    length    = 32 + 32;
+    buffer[0] = 101 ; // set type
+    length    = 3+32+3+32+2+1+2+2+2+nb_cars_lus;
     buffer    = s_int_to_buf(buffer,length, 1);
     // hash file
     buffer[3] = 50;
@@ -57,28 +57,30 @@ unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char *
     buffer[38] = 51;
     buffer     = s_int_to_buf(buffer,32,39);
     memcpy(buffer+41,hash_chunk,32);
+    buffer = s_int_to_buf(buffer, index,73);
     // chunk
-    buffer[74]  =60;
-    buffer      = s_int_to_buf(buffer,length,75);
-    buffer      = s_int_to_buf(buffer,index,77);
-    buffer      = s_int_to_buf(buffer,max_index,79);
-    memcpy(buffer+81,chunk,length);
+    buffer[75]  = 60;
+    buffer      = s_int_to_buf(buffer,nb_cars_lus + 2 + 2,76);
+    buffer      = s_int_to_buf(buffer,index,78);
+    buffer      = s_int_to_buf(buffer,max_index,80);
+    memcpy(buffer+82,chunk,nb_cars_lus);
     return buffer;
 }
 
 // message LIST
 unsigned char * create_message_list(unsigned char * hash_file)
 {
-    unsigned char *buffer=malloc(38); // ou 74 ? 
+    unsigned char *buffer=malloc(38); // 
     short int length;
     // create the message
     buffer[0] = 102 ; // set type
-    length    = 32;
+    length    = 35; // type + length + hash
     buffer    = s_int_to_buf(buffer,length, 1);
     // hash file
     buffer[3] = 50;
     buffer    = s_int_to_buf(buffer,32,4);
     memcpy(buffer+6,hash_file,32);
+    printf("res %d\n",strncmp( (char*) hash_file,(char*)buffer+6,32));
     return buffer;
 }
 
@@ -199,7 +201,32 @@ int u_strncmp(unsigned char * string1,unsigned char * string2, int n)
 }
 
 
+void print_hash(unsigned char hash[])
+{
+   int idx;
+   for (idx=0; idx < 32; idx++)
+      printf("%02x",hash[idx]);
+}
 
-
+// transforme un hash sur 64 bits en un hash sur 32 bits
+unsigned char * hash_to_char( char* hash)
+{
+    int i;
+    unsigned char * new = malloc(32);
+    char a,b;
+    for(i = 0 ; i < 32 ; i++)
+    {
+        if(hash[i*2] <= '9')
+            a = hash[i*2] - '0';
+        else
+            a = hash[i*2] - 'a' + 10;
+        if(hash[i*2+1] <= '9')
+            b = hash[i*2+1] - '0';
+        else
+            b = hash[i*2+1] - 'a' + 10;
+        new[i] = a * 16 + b;
+    }
+    return new;
+}
 
 
