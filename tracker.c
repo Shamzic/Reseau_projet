@@ -30,7 +30,7 @@ client_s* ajouterEnTete (client_s* liste_clients, short int length,short int por
   client_s* new_client = malloc(sizeof(client_s));
   new_client->length=length;
   new_client->port=port;
-  strcpy (new_client->address_ip,address_ip); // tableau statique , no need init
+  memcpy (new_client->address_ip,address_ip,4); // tableau statique , no need to init
   new_client->next = liste_clients;
   return new_client;
 }
@@ -70,7 +70,11 @@ void afficherListe (client_s* liste_clients)
       printf ("Client %d :\n",i);
       printf("\t-Length : %hi\n",tmp->length);
       printf("\t-Port : %hi\n",tmp->port);
-      printf("\t-Adresse : %s\n\n",tmp->address_ip);
+      printf("\t-Adresse : ");
+      printf("%d.",tmp->address_ip[0]);
+      printf("%d.",tmp->address_ip[1]);
+      printf("%d.",tmp->address_ip[2]);
+      printf("%d\n",tmp->address_ip[3]);
       tmp = tmp->next;
       i++;
     }
@@ -121,21 +125,21 @@ message_t reception_msg_put_get(unsigned char * buf,char IP_TYPE)
   message.length= buf_to_s_int(buf+1);         // Longueur du message total
   message.hash.type = buf[3];                  // Type du msg_hash
   message.hash.length = buf_to_s_int(buf+4);   // Taille du msg_hash
-  memcpy(buf+6,message.hash.hash,32);          // Hash
+  memcpy(message.hash.hash,buf+6,32);          // Hash
   //message.client.type = buf[38];             // Type du client TOUJOURS 55 donc osef
   message.client.length = buf_to_s_int(buf+39); // Taille du client
   message.client.port = buf_to_s_int(buf+41);                  // Port du client 
-  memcpy(buf+43,message.client.address_ip,length_address);  // Addresse du client
+  memcpy(message.client.address_ip,buf+43,length_address);  // Addresse du client
   return message;
 }
 
 int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans tab
 {                                                    // de [Hash+clients]            
-    int i,bool=1;                                    // return 0 = true
+    int i,bool=0;                                    // return 0 = true
     for (i =0; i<taille; i++)                        // return 1 =false
     {
         if(strncmp(sc[i].hash,hash,strlen(hash)))
-                bool=0;
+                bool=1;
     }
     return bool; 
 }
@@ -167,7 +171,7 @@ char traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
                 sc=realloc(sc,sizeof(stock_list)*t.taille_max);
             }
             sc[t.taille_actuelle-1].hash = malloc(32);
-            strncpy(sc[t.taille_actuelle-1].hash,mess.hash.hash,strlen(mess.hash.hash));
+            strncpy(sc[t.taille_actuelle-1].hash,mess.hash.hash,32);
             printf("Ajout du hash dans la liste chainée !\n");
             sc[t.taille_actuelle-1].liste_clients=NULL;
             
@@ -204,8 +208,8 @@ void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
 {
     // modifie le type du buf à renvoyer :
     buf[0]=111;
-    // Envoie le ACK 
-    if(sendto(sockfd,buf,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
+    // Envoie le ACK
+    if(sendto(sockfd,buf,buf_to_s_int((unsigned char *)(buf + 1)) + 3,0,(struct sockaddr *)&dest,addrlen) == -1)
     {
         perror("sendto");
         close(sockfd);
@@ -339,8 +343,9 @@ int main(int argc, char **argv)
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-        printf("jai eu\n");
-            //const char *inet_ntop(int af, const void *src,char *dst, socklen_t size);
+        printf("\tMessage reçu\n");
+        
+        //const char *inet_ntop(int af, const void *src,char *dst, socklen_t size);
         if(inet_ntop(AF_INET,&client.sin_addr.s_addr,ip,20) == NULL)
         {
             perror("inet_ntop");
@@ -348,13 +353,13 @@ int main(int argc, char **argv)
 	        exit(EXIT_FAILURE);
         }
 
-            // print the received ip
+        // print the received ip
         printf("New message from %s : \n",ip);
+        
         mess = reception_msg_put_get((unsigned char*)buf,(char)4);
-	    printf("valeur du type de message reçu : %d\n",mess.type);
 	    char retour = traite_msg(mess,stlist,t);
         
-       printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
+        printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
 
         if(retour == 110)
         {

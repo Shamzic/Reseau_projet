@@ -114,13 +114,15 @@ unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char 
 unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * action)
 {
     unsigned char * msg_send;
+    char loopbackaddr[4];
+    loopbackaddr[0] = 127; loopbackaddr[1] = 0; loopbackaddr[2] = 0; loopbackaddr[3] = 1;
     // Analyse arguments
     // possible actions : PUT, GET, KEEP_ALIVE, PRINT ? 
     printf("%s %s to %s port %d\n", action, hash,infos_com.addr_tracker,infos_com.port_tracker);
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
-        msg_send = create_message_put(hash,4,infos_com.addr_tracker,infos_com.port_tracker);
+        msg_send = create_message_put(hash,4,loopbackaddr,infos_com.port_tracker);
     }
     else if (strcmp(action,"get") == 0)
     {
@@ -149,6 +151,9 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 // send the message
 void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
 {
+    printf("\n\n avant l'envoie\n");
+    print_hash(message + 6);
+    printf("\n\n");
     if(sendto(sockfd, message, *(short int*)(message+1)+3, 0,(struct sockaddr*) &addr, sizeof(struct sockaddr_in)) == -1)
     {
         perror("sendto");
@@ -219,6 +224,13 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
             return -1;
         msg_recv[0] = 110; // change type to compare with msg_send
         printf("regarde %d\n",u_strncmp(msg_send,msg_recv,msg_send_length));
+        printf(" port send %d port recv %d\n",buf_to_s_int(msg_send + 41),buf_to_s_int(msg_recv + 41));
+        printf("la longueur du msg client %d, du msg tracker %d\n",buf_to_s_int(msg_send +1), buf_to_s_int(msg_recv +1));
+        print_hash(msg_send + 6);
+        printf("\n");
+        print_hash(msg_recv + 6);
+        printf("\n");
+        printf(" début addresse send %d recv %d \n", msg_send[43],msg_recv[43]);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
         return 0;
