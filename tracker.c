@@ -15,7 +15,8 @@
 
 typedef struct s_stock_list
 {
-    char * hash;
+    //char * hash;
+    char hash[32];
     client_s* liste_clients;
 }stock_list;
 
@@ -23,6 +24,7 @@ typedef struct taille_liste
 {
     int taille_actuelle;
     int taille_max;
+    int nb_hash;
 }taille_l;
 
 client_s* ajouterEnTete (client_s* liste_clients, short int length,short int port,char *address_ip)
@@ -41,7 +43,7 @@ client_s* ajouterEnFin (client_s* liste_clients,short int length,short int port,
   client_s* new_client = malloc(sizeof(client_s));
   new_client->length=length;
   new_client->port=port;
-  strcpy (new_client->address_ip,address_ip); // tableau statique , no need init
+  strncpy (new_client->address_ip,address_ip,strlen(address_ip)); // tableau statique
   new_client->next = NULL;
   
   if (liste_clients == NULL)
@@ -135,11 +137,21 @@ message_t reception_msg_put_get(unsigned char * buf,char IP_TYPE)
 
 int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans tab
 {                                                    // de [Hash+clients]            
-    int i,bool=0;                                    // return 0 = true
+    int i,bool=1;                                    // return 0 = true
     for (i =0; i<taille; i++)                        // return 1 =false
     {
-        if(strncmp(sc[i].hash,hash,strlen(hash)))
-                bool=1;
+        printf("Position %d\n",i);
+        printf("Compare le hash : ");
+        print_hash((unsigned char*)hash);
+        printf("\nAvec celui de la liste  : ");
+        print_hash((unsigned char*)sc[i].hash);
+        printf("\n");
+
+        if(memcmp(sc[i].hash,hash,strlen(hash))==0)
+        {
+            printf("trouvé !\n");   
+            return bool=0;
+        }
     }
     return bool; 
 }
@@ -147,53 +159,65 @@ int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans ta
 int positionHash(char* hash, stock_list *sc,int taille) // Cherche la position du
 {                                                   // hash dans le tableau 
     int i=0;                                        // de [hash + client]
-    while((i<taille) && (!strncmp(sc[i].hash,hash,strlen(hash))))
+    printf("Recherche de la position : Taille du tableau %d\n",taille);
+    while((i<taille) && (memcmp(sc[i].hash,hash,strlen(hash)))!=0)
     {
         i++;
     }
     return i;
 }
 
-char traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msgs
+char traite_msg(message_t mess,stock_list *sc,taille_l* t) // traite TOUS les msgs
 {                                                     // recu par le trackers        
     if( mess.type == 110 )
     {
         printf("Cherche la position dans le tab de hash ");
         print_hash((unsigned char*)mess.hash.hash);
         printf("\n");
-        if( HashDansListe(mess.hash.hash,sc,t.taille_actuelle) == 1) 
+        if( HashDansListe(mess.hash.hash,sc,t->taille_actuelle) == 1) 
         {                                        // Hash pas dans tab => nouveau hash
                                                  // ajouté en fin de tableau + client
             printf("Le hash n'est pas encore dans le tableau des hash : %s\n",mess.hash.hash);
-            if(t.taille_actuelle == t.taille_max)
+            if(t->taille_actuelle == t->taille_max)
             {
-                t.taille_max=t.taille_max+t.taille_max;
-                sc=realloc(sc,sizeof(stock_list)*t.taille_max);
+                t->taille_max=t->taille_max+t->taille_max;
+                sc=realloc(sc,sizeof(stock_list)*t->taille_max);
             }
-            sc[t.taille_actuelle-1].hash = malloc(32);
-            strncpy(sc[t.taille_actuelle-1].hash,mess.hash.hash,32);
-            printf("Ajout du hash dans la liste chainée !\n");
-            sc[t.taille_actuelle-1].liste_clients=NULL;
+            //sc[t.taille_actuelle-1].hash = malloc(32);
             
-            sc[t.taille_actuelle-1].liste_clients=ajouterEnTete(sc[t.taille_actuelle-1].liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
+            printf("Ajout du hash");
+            print_hash((unsigned char*)mess.hash.hash);
+            printf(" dans la liste chainée à la position %d\n",t->nb_hash);
+            strncpy(sc[t->nb_hash].hash,mess.hash.hash,32);
+            
+            printf("Ajout d'un client en tête de liste en même pos\n");
+            sc[t->nb_hash].liste_clients=NULL;
+            sc[t->nb_hash].liste_clients=ajouterEnTete(sc[t->nb_hash].liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
             printf("Affichage de la liste des clients du hash\n");
-            afficherListe (sc[t.taille_actuelle-1].liste_clients);
-            t.taille_actuelle++;
+            afficherListe (sc[t->nb_hash].liste_clients);
+            t->taille_actuelle++; 
+            t->nb_hash++;
+            printf("Taille du tableau des hash après ajout du client : %d\n"
+            ,t->taille_actuelle);
+            //init à 0 le prochain hash
+            strncpy(sc[t->nb_hash].hash,"00000000000000000000000000000000",32);
         }
-        else if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
+        else if(HashDansListe(mess.hash.hash,sc,t->taille_actuelle)==0) 
         // hash dans tab => ajout à la suite
         {
-            int pos = positionHash(mess.hash.hash,sc,t.taille_actuelle);
+            int pos = positionHash(mess.hash.hash,sc,t->nb_hash);
             printf("Hash %s déjà dans dans le tableau des hash à la position %d\n",mess.hash.hash,pos);
             sc[pos].liste_clients=ajouterEnFin(sc[pos].liste_clients,
             mess.client.length,mess.client.port,mess.client.address_ip);
+            printf("Affichage de la liste des clients du hash\n");
+            afficherListe (sc[pos].liste_clients);
         }
         return 110;
     }
     
     else if( mess.type == 112 )
     {
-        if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
+        if(HashDansListe(mess.hash.hash,sc,t->taille_actuelle)==0) 
     	{   
     	    printf("hash trouvé dans la liste !\n");
        		return 112;
@@ -218,9 +242,9 @@ void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
 }
 
 // char * retour = malloc(100*sizeof(client_s));
-int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP_TYPE,taille_l t)
+int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP_TYPE,taille_l* t)
 {
-    int pos = positionHash(hash,stlist,t.taille_actuelle); 
+    int pos = positionHash(hash,stlist,t->taille_actuelle); 
     // A priori on met max 100 clients          
     int taille_clients = 0;
     client_s* temp = stlist[pos].liste_clients;
@@ -250,7 +274,7 @@ int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP
     return taille_clients;
 }
 //ack_get(sockfd,client,buf,addrlen,stlist,t,(char)4);
-void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l t,char IP_TYPE)
+void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l* t,char IP_TYPE)
 {
 
     char * retour = malloc(36+100*sizeof(client_s));
@@ -324,10 +348,11 @@ int main(int argc, char **argv)
     taille_l t;
     t.taille_actuelle = 1;
     t.taille_max=10;
+    t.nb_hash=0;
     stock_list* stlist=malloc(sizeof(stock_list)*t.taille_max);
     stlist[0].liste_clients=NULL;
-    stlist[0].hash = malloc(32);
-    //strncpy(stlist[0].hash,"00000000000000000000000000000000",32);
+    //stlist[0].hash = malloc(32);
+    strncpy(stlist[0].hash,"00000000000000000000000000000000",32);
     while(1)
     {
         /*ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
@@ -357,7 +382,7 @@ int main(int argc, char **argv)
         printf("New message from %s : \n",ip);
         
         mess = reception_msg_put_get((unsigned char*)buf,(char)4);
-	    char retour = traite_msg(mess,stlist,t);
+	    char retour = traite_msg(mess,stlist,&t);
         
         printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
 
@@ -368,7 +393,7 @@ int main(int argc, char **argv)
         if (retour == 112)
         {
             printf("On a reçu un message get\n");
-            ack_get(sockfd,client,buf,addrlen,stlist,mess,t,(char)4);
+            ack_get(sockfd,client,buf,addrlen,stlist,mess,&t,(char)4);
         }
         sleep(1);
         // => socket , sockaddr de destination , port , 
