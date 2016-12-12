@@ -120,12 +120,12 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
-        msg_send = create_message_put(hash,6,infos_com.addr_tracker,infos_com.port_tracker);
+        msg_send = create_message_put(hash,4,infos_com.addr_tracker,infos_com.port_tracker);
     }
     else if (strcmp(action,"get") == 0)
     {
         printf("get\n");
-        msg_send = create_message_get(hash, 6, infos_com.addr_tracker, infos_com.port_tracker); // create the message
+        msg_send = create_message_get(hash,4, infos_com.addr_tracker, infos_com.port_tracker); // create the message
     }
     else if (strcmp(action,"keep_alive") == 0)
     {
@@ -206,7 +206,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 103) // test if good type of message
             return -1;
         msg_recv[0] = 102; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1); printf(" RECEPTION : %s\n",msg_recv); 
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
         return 0;

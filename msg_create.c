@@ -152,15 +152,17 @@ unsigned char * int_to_buf(unsigned char * buf,int i,int begin)
 	return buf;	
 }
 
-
-unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin)
+// transforme 2 char de buf
+// à partir de begin en un short int
+unsigned char * s_int_to_buf(unsigned char * buf,short int i,int begin) 
 {
 	buf[begin]=i & 0xFF;
 	buf[begin+1]=(i>>8) & 0xFF;
 	return buf;	
 }
 
-
+// transforme 2 char de buf
+// à partir de begin en un UNSIGNED short int
 unsigned char * us_int_to_buf(unsigned char * buf,unsigned short int i,int begin)
 {
 	buf[begin]=i & 0xFF;
@@ -168,12 +170,14 @@ unsigned char * us_int_to_buf(unsigned char * buf,unsigned short int i,int begin
 	return buf;	
 }
 
-short int buf_to_s_int ( unsigned char * buf)
+
+// Cast un char * en un short int
+short int buf_to_s_int ( unsigned char * buf) 
 {
     return *(short int*) buf;
 }
 
-
+// Cast un unsigned char* en int
 int buf_to_int ( unsigned char * buf)
 {
     return *(int*) buf;
@@ -188,7 +192,7 @@ int u_strlen ( unsigned char * string)
     return length;
 }
 
-
+// Compare deux unsigned char * de taille n
 int u_strncmp(unsigned char * string1,unsigned char * string2, int n)
 {
     int i;
@@ -200,7 +204,7 @@ int u_strncmp(unsigned char * string1,unsigned char * string2, int n)
     return 0;
 }
 
-
+// affiche un hash
 void print_hash(unsigned char hash[])
 {
    int idx;

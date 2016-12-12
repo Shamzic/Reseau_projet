@@ -108,7 +108,7 @@ client_s* supprimerElementEnTete (client_s* liste_clients)
 }
 
 
-message_t reception_msg_put(unsigned char * buf,char IP_TYPE)
+message_t reception_msg_put_get(unsigned char * buf,char IP_TYPE)
 {
   message_t message;
   short int length_address;
@@ -128,20 +128,13 @@ message_t reception_msg_put(unsigned char * buf,char IP_TYPE)
   memcpy(buf+43,message.client.address_ip,length_address);  // Addresse du client
   return message;
 }
-/*
-void init_stocklist(stock_list *stocklist)
-{
-  stocklist=malloc(1*sizeof(stock_list));
-  stocklist->liste_clients=NULL;
-}*/
-
 
 int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans tab
 {                                                    // de [Hash+clients]            
     int i,bool=1;                                    // return 0 = true
     for (i =0; i<taille; i++)                        // return 1 =false
     {
-        if(sc[i].hash == hash)
+        if(strncmp(sc[i].hash,hash,strlen(hash)))
                 bool=0;
     }
     return bool; 
@@ -150,7 +143,7 @@ int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans ta
 int positionHash(char* hash, stock_list *sc,int taille) // Cherche la position du
 {                                                   // hash dans le tableau 
     int i=0;                                        // de [hash + client]
-    while((i<taille) && (sc[i].hash!=hash))
+    while((i<taille) && (!strncmp(sc[i].hash,hash,strlen(hash))))
     {
         i++;
     }
@@ -158,28 +151,36 @@ int positionHash(char* hash, stock_list *sc,int taille) // Cherche la position d
 }
 
 char traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msgs
-{                                                     // recu par le trackers
+{                                                     // recu par le trackers        
     if( mess.type == 110 )
     {
+        printf("Cherche la position dans le tab de hash ");
+        print_hash((unsigned char*)mess.hash.hash);
+        printf("\n");
         if( HashDansListe(mess.hash.hash,sc,t.taille_actuelle) == 1) 
         {                                        // Hash pas dans tab => nouveau hash
                                                  // ajouté en fin de tableau + client
-            t.taille_actuelle++;
+            printf("Le hash n'est pas encore dans le tableau des hash : %s\n",mess.hash.hash);
             if(t.taille_actuelle == t.taille_max)
             {
                 t.taille_max=t.taille_max+t.taille_max;
                 sc=realloc(sc,sizeof(stock_list)*t.taille_max);
             }
-            sc[t.taille_actuelle-1].hash = malloc(sizeof(mess.hash.hash));
-            strcpy(sc[t.taille_actuelle-1].hash,mess.hash.hash);
+            sc[t.taille_actuelle-1].hash = malloc(32);
+            strncpy(sc[t.taille_actuelle-1].hash,mess.hash.hash,strlen(mess.hash.hash));
+            printf("Ajout du hash dans la liste chainée !\n");
             sc[t.taille_actuelle-1].liste_clients=NULL;
+            
             sc[t.taille_actuelle-1].liste_clients=ajouterEnTete(sc[t.taille_actuelle-1].liste_clients,mess.client.length,mess.client.port,mess.client.address_ip);
-        
+            printf("Affichage de la liste des clients du hash\n");
+            afficherListe (sc[t.taille_actuelle-1].liste_clients);
+            t.taille_actuelle++;
         }
         else if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
         // hash dans tab => ajout à la suite
         {
             int pos = positionHash(mess.hash.hash,sc,t.taille_actuelle);
+            printf("Hash %s déjà dans dans le tableau des hash à la position %d\n",mess.hash.hash,pos);
             sc[pos].liste_clients=ajouterEnFin(sc[pos].liste_clients,
             mess.client.length,mess.client.port,mess.client.address_ip);
         }
@@ -190,8 +191,11 @@ char traite_msg(message_t mess,stock_list *sc,taille_l t) // traite TOUS les msg
     {
         if(HashDansListe(mess.hash.hash,sc,t.taille_actuelle)==0) 
     	{   
+    	    printf("hash trouvé dans la liste !\n");
        		return 112;
     	}
+    	else
+    	    printf("hash PAS trouvé dans la liste :(\n");
     }
     return 0;
 }
@@ -216,6 +220,11 @@ int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP
     // A priori on met max 100 clients          
     int taille_clients = 0;
     client_s* temp = stlist[pos].liste_clients;
+    
+    // Affichage de la liste des clients pour vérifier :
+    printf("Liste du client\n");
+    afficherListe(temp);
+    
     int i=0;
     short int length;
     if(IP_TYPE == 4)
@@ -239,6 +248,7 @@ int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP
 //ack_get(sockfd,client,buf,addrlen,stlist,t,(char)4);
 void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l t,char IP_TYPE)
 {
+
     char * retour = malloc(36+100*sizeof(client_s));
     retour[0]=113;
     // PREMIERE ETAPE copier la partie hash dans le retour
@@ -247,8 +257,9 @@ void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,s
     char * retour2 = malloc(100*sizeof(client_s));
     int taille_clients = creer_char_liste_client(retour,mess.hash.hash,stlist,IP_TYPE,t);
     strncat(retour,retour2,taille_clients);         
+    printf("Avant l'envoi du paquet..\n");
     // TROISIEME ETAPE Envoie le ACK au client qui l'a demandé
-    if(sendto(sockfd,retour,strlen(buf),0,(struct sockaddr *)&dest,addrlen) == -1)
+    if(sendto(sockfd,retour,strlen(retour),0,(struct sockaddr *)&dest,addrlen) == -1)
     {
         perror("sendto");
         close(sockfd);
@@ -311,7 +322,8 @@ int main(int argc, char **argv)
     t.taille_max=10;
     stock_list* stlist=malloc(sizeof(stock_list)*t.taille_max);
     stlist[0].liste_clients=NULL;
-
+    stlist[0].hash = malloc(32);
+    //strncpy(stlist[0].hash,"00000000000000000000000000000000",32);
     while(1)
     {
         /*ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
@@ -338,18 +350,19 @@ int main(int argc, char **argv)
 
             // print the received ip
         printf("New message from %s : \n",ip);
-        mess = reception_msg_put((unsigned char*)buf,(char)4);
-	    printf("valeur du type : %d",mess.type);
+        mess = reception_msg_put_get((unsigned char*)buf,(char)4);
+	    printf("valeur du type de message reçu : %d\n",mess.type);
 	    char retour = traite_msg(mess,stlist,t);
         
        printf("addresse client : %s\n", inet_ntoa(client.sin_addr));
 
         if(retour == 110)
         {
-            ack_put(sockfd,client,buf,addrlen); //(char*)&client.sin_addr.s_addr
+            ack_put(sockfd,client,buf,addrlen);
         }
-        else if (retour == 112)
+        if (retour == 112)
         {
+            printf("On a reçu un message get\n");
             ack_get(sockfd,client,buf,addrlen,stlist,mess,t,(char)4);
         }
         sleep(1);
