@@ -278,9 +278,6 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
     }
     max_index = infos_com.tab_index_chunks[chunk_index];
     
-    if(nb_cars_lus < 1000)
-        printf("nb_cars_lus %d\n",nb_cars_lus);
-    printf("lindex du fragment est %d\n",fragment_index);
     message =create_message_rep_get( hash, hash_chunk, chunk, chunk_index,fragment_index, max_index,nb_cars_lus);
     free(chunk);
     free(hash_chunk);
@@ -322,7 +319,6 @@ int traitement_message(infos infos_com, unsigned char * msg)
         send_packet ( response, infos_com.sockfdtarget,infos_com.target);
         free(response);
         free(hash);
-        printf("msg type 103 envoyé \n");
         return 1;
     }
     else if (msg[0] == 100)
@@ -392,7 +388,6 @@ int main(int argc, char **argv)
             close(infos_com.sockfdmy);
             exit(EXIT_FAILURE);
         }
-        printf("received message \n");
         // établit la connexion avec la source
         if((infos_com.sockfdtarget = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
         {
