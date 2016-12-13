@@ -1,0 +1,56 @@
+\" COMMENT LIRE CETTE PAGE AVEC LA COMMANDE  => "man ./manseeder" 
+
+
+.TH EXO1.4 1 "DECEMBRE 2016" Linux "Manuel utilisateur"
+
+
+.SH NOM
+seeder \- programme de l'exercice 1.4
+.SH SYNOPSIS
+.B seeder
+.I port_d_ecoute
+.I fichier
+
+
+.SH DESCRIPTION
+.B seeder
+lance un serveur sur un port d'écoute avec un fichier et affiche le hash
+du fichier ainsi que la liste des chunks du fichier. 
+.PP
+Lorsqu'un client se connecte au seeder avec le hash du fichier, le seeder copie
+le contenu de son fichier dans un fichier de destination nouvellement créé en 
+paramètre du client.
+
+.SH FICHIERS
+.I ./seeder.c
+.RS
+Fichier du main.
+.RE
+.I ./msg_create.c
+.RS
+Fichier de fonctions de création de messages
+.RE
+.I ./sha256.c
+.RS
+Fichier de fonction de hashage 256.
+
+.SH EXEMPLE COMPILATION
+.B gcc 
+sha256.c msg_create.c seeder.c -o 
+.B seeder 
+-g -Wall -Werror -Wextra
+
+
+.SH EXEMPLE EXECUTION
+Exemple d'un seeder qui écoute sur le port 5000 et qui propose 
+le fichier test_file.txt pour le hashage :
+.PP
+.B ./seeder 
+5000 
+test_file.txt
+
+.SH AUTEURS
+Daniel Wilhelm <daniel.whilhelm@etu.unistra.fr>
+.PP
+Simon Hamery <simon.hamery2@etu.unistra.fr> 
+ 

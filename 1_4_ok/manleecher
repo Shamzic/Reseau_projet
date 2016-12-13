@@ -1,0 +1,59 @@
+\" COMMENT LIRE CETTE PAGE AVEC LA COMMANDE  => "man ./manseeder" 
+
+
+.TH EXO1.4 1 "DECEMBRE 2016" Linux "Manuel utilisateur"
+
+
+.SH NOM
+leecher \- programme de l'exercice 1.4
+.SH SYNOPSIS
+.B leecher
+.I adresse_serveur
+.I port_d_envoi
+.I hash_fichier
+.I fichier_destination
+
+
+.SH DESCRIPTION
+.B leecher
+lance un programme qui récupère un fichier porposé par un seeder 
+à partir du hash du fichier passé en argument. 
+Le fichier de destination est créé s'il n'existe pas, sinon il est écrasé.
+.PP.
+
+.SH FICHIERS
+.I ./leecher.c
+.RS
+Fichier du main.
+.RE
+.I ./msg_create.c
+.RS
+Fichier de fonctions de création de messages
+.RE
+.I ./sha256.c
+.RS
+Fichier de fonction de hashage 256.
+
+.SH EXEMPLE COMPILATION
+.B gcc 
+leecher.c msg_create.c -o 
+.B leecher 
+-g -Wall -Werror -Wextra
+
+
+
+.SH EXEMPLE EXECUTION
+Exemple d'un leecher qui demande un hash d'un fichier à copier dans 
+un fichier dest sur le port 5000 à l'adresse locale :
+.PP
+.B ./leecher 
+127.0.0.1 5000 
+ac2b8f80d3715f4fe0039063255002f67997c35ec76556a45436bb268dd7896a 
+dest
+
+
+.SH AUTEURS
+Daniel Wilhelm <daniel.whilhelm@etu.unistra.fr>
+.PP
+Simon Hamery <simon.hamery2@etu.unistra.fr> 
+ 
