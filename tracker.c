@@ -139,14 +139,14 @@ int HashDansListe(char* hash, stock_list *sc,int taille) // Cherche hash dans ta
 {                                                    // de [Hash+clients]            
     int i,bool=1;                                    // return 0 = true
     for (i =0; i<taille; i++)                        // return 1 =false
-    {
+    {   
         printf("Position %d\n",i);
         printf("Compare le hash : ");
         print_hash((unsigned char*)hash);
         printf("\nAvec celui de la liste  : ");
         print_hash((unsigned char*)sc[i].hash);
         printf("\n");
-
+        
         if(memcmp(sc[i].hash,hash,strlen(hash))==0)
         {
             printf("trouvé !\n");   
@@ -242,16 +242,18 @@ void ack_put(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen)
 }
 
 // char * retour = malloc(100*sizeof(client_s));
-int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP_TYPE,taille_l* t)
+int creer_char_liste_client(unsigned char * retour,char * hash, stock_list *stlist,char IP_TYPE,taille_l* t)
 {
     int pos = positionHash(hash,stlist,t->taille_actuelle); 
+    printf("Hash à get à la position %d du tableau de HASH\n",pos);
     // A priori on met max 100 clients          
     int taille_clients = 0;
     client_s* temp = stlist[pos].liste_clients;
-    
+    if ( temp == NULL )
+        printf("TEMP VAUT NULL \n");
     // Affichage de la liste des clients pour vérifier :
     printf("Liste du client\n");
-    afficherListe(temp);
+    //afficherListe(temp);
     
     int i=0;
     short int length;
@@ -259,40 +261,56 @@ int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP
         length = 4;
     else
         length = 16;
-    while ( temp != NULL );
+        printf("test\n");
+    while ( temp != NULL )
     {
         retour[i]=55;
         i=i+1;
-        retour[i]=2+length; // longueur du client
+        retour[i]=2+length; // longueur du client, 4+2 si ipv4 ou 16+2 si ipv6
         i=i+2;
         retour[i]=temp->port; // port du client
         i=i+2;
         memcpy(retour+i,temp->address_ip,length);
+        i = i+ 3 + length;
         taille_clients = taille_clients + length + 3;
+        printf("copie d'un client sur %d octets\n",taille_clients);
         temp= temp->next;
     }
+    printf("liste copiée\n");
     return taille_clients;
 }
 //ack_get(sockfd,client,buf,addrlen,stlist,t,(char)4);
 void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l* t,char IP_TYPE)
 {
-    printf("------- MGS GET ------------");
-    char * retour = malloc(36+100*sizeof(client_s));
+    printf("------- MGS GET ------------\n");
+    
+    unsigned char * retour = malloc(38+100*sizeof(client_s));
+    memcpy(retour+3,buf,35);
     retour[0]=113;
-    // PREMIERE ETAPE copier la partie hash dans le retour
-    memcpy(retour,buf+3,35);
-    // DEUXIEME ETAPE concatener la liste des clients dans le retour
-    char * retour2 = malloc(100*sizeof(client_s));
-    int taille_clients = creer_char_liste_client(retour,mess.hash.hash,stlist,IP_TYPE,t);
-    strncat(retour,retour2,taille_clients);         
+    
+    // concatener la liste des clients dans le retour
+    unsigned char *str_list_c = malloc(100*sizeof(client_s));
+    int taille_clients = creer_char_liste_client
+        (str_list_c,mess.hash.hash,stlist,IP_TYPE,t);
+    printf("Taille des la liste des clients en octets : %d\n",taille_clients);
+    memcpy(retour+38,str_list_c,taille_clients);    // copie la liste des clients
+    
+    retour[1] = taille_clients+38;                    // copie la taille du msg_get dans
+                                                     // la 2e case sur 2 octets
+    free(str_list_c);
     printf("Avant l'envoi du paquet..\n");
-    // TROISIEME ETAPE Envoie le ACK au client qui l'a demandé
-    if(sendto(sockfd,retour,strlen(retour),0,(struct sockaddr *)&dest,addrlen) == -1)
+    
+    // Envoie le ACK au client qui l'a demandé
+    if(sendto(sockfd,retour,strlen((char*)retour),0,(struct sockaddr *)&dest,addrlen) == -1)
     {
         perror("sendto");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
+    printf("hash fichier envoyé : ");
+    print_hash(retour);
+    printf("\nack_get envoyé !\n");
+    free(retour);
 }
 
 int main(int argc, char **argv)
@@ -392,7 +410,6 @@ int main(int argc, char **argv)
         }
         if (retour == 112)
         {
-            printf("On a reçu un message get\n");
             ack_get(sockfd,client,buf,addrlen,stlist,mess,&t,(char)4);
         }
         sleep(1);

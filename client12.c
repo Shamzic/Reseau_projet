@@ -152,9 +152,9 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 // send the message
 void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
 {
-    printf("\n\n avant l'envoie\n");
+    printf("\n\n Avant l'envoi\n");
     print_hash(message + 6);
-    printf("\n\n");
+    printf("\n");
     if(sendto(sockfd, message, *(short int*)(message+1)+3, 0,(struct sockaddr*) &addr, sizeof(struct sockaddr_in)) == -1)
     {
         perror("sendto");
@@ -184,8 +184,8 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
         close(infos_com.sockfd_tracker);
         exit(EXIT_FAILURE);
     }
-    if(strcmp(action,"get") == 0)
-        action[1] = 't';
+    /* if(strcmp(action,"get") == 0)
+         action[1] = 't';*/
     printf("\n\nune réponse à été reçue\n\n");
     // test of message received
     return test_rep( action, msg_send, msg_recv);
@@ -238,10 +238,17 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
     }
     else if(strcmp(action,"get") == 0) // message get tracker
     {
+        
         if (msg_recv[0] != 113) // test if good type of message
             return -1;
+        printf("MSG GET RECV !\n");
         msg_recv[0] = 112; // change type to compare with msg_send
         msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
+        printf("message_send : ");
+        print_hash(msg_send);
+        printf(" \nmessage_recv : ");
+        print_hash(msg_recv);printf("\n");
+        
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
          printf("Message rcv = au message send\n");
@@ -306,6 +313,7 @@ infos analyze_messages_tracker(unsigned char *message,infos infos_com)
         ; // nothing to do ( test was made in test_rep)
     else if(message[0] == 113) // message ACKGET
     {
+        printf("on va rentrer dans l'analyze_get\n");
         infos_com = analyze_ack_get(message,infos_com);
         // print every client
         liste = infos_com.liste_clients;
@@ -381,6 +389,7 @@ int main(int argc, char **argv)
     // communicate with tracker
     message = communicate_tracker(infos_com,hash,action);
     printf("\t COMMUNICATE WITH TRACKER END\n");
+    
     // if put then make thread which send keep_alive to tracker
     if(strcmp(action,"put") == 0 )
     {
@@ -390,7 +399,10 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
     }
-    
+    if(strcmp(action,"get")==0)
+    {
+        analyze_messages_tracker(message,infos_com);
+    }
     
     
     while(1) // communication client-client : GET, REP_GET, LIST, REP_LISTE
