@@ -1,0 +1,60 @@
+\" COMMENT LIRE CETTE PAGE AVEC LA COMMANDE  => "man ./manclient" 
+
+
+.TH EXO1.2 1 "DECEMBRE 2016" Linux "Manuel utilisateur"
+
+
+.SH NOM
+client \- programme de l'exercice 1.2
+.SH SYNOPSIS
+.B client
+.I adresse_serveur
+.I port_d_envoi
+.I port_d_ecoute
+.I action
+.I hash
+
+
+.SH DESCRIPTION
+.B client
+lance un client avec un port d'envoi et un port d'écoute
+.PP
+Lors de la l'envoi du put, le client attends un ack_put après s'être fait enregistré
+dans la liste des clients du hash du client.
+.PP
+Lors de l'envoi d'un message get, le client attend un ack_get contenant la liste 
+des clients qui possèdent le hash du client.
+
+.SH FICHIERS
+.I ./client.c
+.RS
+Fichier du main.
+.RE
+.I ./msg_create.c
+.RS
+Fichier de fonctions de création de messages
+
+.SH EXEMPLE COMPILATION
+.B gcc 
+client.c msg_create.c -o 
+.B client 
+-g -Wall -Werror -Wextra -lpthread
+
+
+.SH EXEMPLE EXECUTION
+Exemple d'un client qui envoie le hash 123456789 au tracker
+sur le port 5000 et qui écoute sur le port 5001 :
+.PP
+.B ./client 
+127.0.0.1 
+5000
+5001
+put
+123456789
+
+
+.SH AUTEURS
+Daniel Wilhelm <daniel.whilhelm@etu.unistra.fr>
+.PP
+Simon Hamery <simon.hamery2@etu.unistra.fr> 
+ 
