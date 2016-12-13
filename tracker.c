@@ -43,7 +43,7 @@ client_s* ajouterEnFin (client_s* liste_clients,short int length,short int port,
   client_s* new_client = malloc(sizeof(client_s));
   new_client->length=length;
   new_client->port=port;
-  strncpy (new_client->address_ip,address_ip,strlen(address_ip)); // tableau statique
+  memcpy (new_client->address_ip,address_ip,4); // tableau statique
   new_client->next = NULL;
   
   if (liste_clients == NULL)
@@ -207,7 +207,7 @@ char traite_msg(message_t mess,stock_list *sc,taille_l* t) // traite TOUS les ms
         {
             int pos = positionHash(mess.hash.hash,sc,t->nb_hash);
             printf("Hash %s déjà dans dans le tableau des hash à la position %d\n",mess.hash.hash,pos);
-            sc[pos].liste_clients=ajouterEnFin(sc[pos].liste_clients,
+            sc[pos].liste_clients=ajouterEnTete(sc[pos].liste_clients,
             mess.client.length,mess.client.port,mess.client.address_ip);
             printf("Affichage de la liste des clients du hash\n");
             afficherListe (sc[pos].liste_clients);
@@ -276,7 +276,7 @@ int creer_char_liste_client(char* retour,char * hash, stock_list *stlist,char IP
 //ack_get(sockfd,client,buf,addrlen,stlist,t,(char)4);
 void ack_get(int sockfd,struct sockaddr_in dest,  char * buf,socklen_t addrlen,stock_list *stlist,message_t mess,taille_l* t,char IP_TYPE)
 {
-
+    printf("------- MGS GET ------------");
     char * retour = malloc(36+100*sizeof(client_s));
     retour[0]=113;
     // PREMIERE ETAPE copier la partie hash dans le retour

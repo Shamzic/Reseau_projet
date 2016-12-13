@@ -13,7 +13,7 @@
 #include "structures.h"
 #include "messages.h"
 
-#define EXPIRATION 5
+#define EXPIRATION 15
 
 
 
@@ -122,7 +122,8 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
-        msg_send = create_message_put(hash,4,loopbackaddr,infos_com.port_tracker);
+        //msg_send = create_message_put(hash,4,loopbackaddr,infos_com.port_tracker);
+        msg_send = create_message_put(hash,4,loopbackaddr,infos_com.port_listen);
     }
     else if (strcmp(action,"get") == 0)
     {
@@ -243,6 +244,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
+         printf("Message rcv = au message send\n");
         return 0;
     }
     if(strcmp(action,"keep_alive") == 0) // message keep_alive tracker
@@ -310,6 +312,7 @@ infos analyze_messages_tracker(unsigned char *message,infos infos_com)
         while(liste != NULL)
         {
             printf("IP : %s port %d",liste->address_ip, liste->port);
+            liste=liste->next;
         }
     }
     else
