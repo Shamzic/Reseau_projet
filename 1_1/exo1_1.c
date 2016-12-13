@@ -33,16 +33,6 @@ void print_hash(unsigned char hash[])
    printf("\n");
 }
 
-char *suppr_retour_chariot(char * s)
-{
-  if(s[strlen(s)]=='\n')
-    s[strlen(s)]='\0';
-  return s;
-}
-
-
-// problème au dernier chunk avec les primitives syst : dernier chunk mal haché
-
 int main (int argc, char * argv[])
 {
     int fd;
@@ -61,7 +51,6 @@ int main (int argc, char * argv[])
         msg_error("open\n");
 
     // fait une empreinte du fichier total -> il faut le lire entièrement
-    
     // débute par rechercher la taille du fichier avec lseek;
     if((size_file = lseek(fd,0,SEEK_END)) == -1)
     {
@@ -71,7 +60,7 @@ int main (int argc, char * argv[])
     size_file --;
     printf("file offset %d\n",size_file);
     
-    // retourne au début
+    // retourne au début pour hasher chunk par chunk
     if( lseek(fd,0,SEEK_SET) == -1)
     {
         perror("lseek");
@@ -92,7 +81,7 @@ int main (int argc, char * argv[])
     sha256_final(&ctx,hash);
     print_hash(hash);
 
-    // passe tout le buffer tous les x octets et fait un hash
+    // passe tout le buffer tous les 1m octets et fait un hash
     while(pos != size_file)
     {
         sha256_init(&ctx);
