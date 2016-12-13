@@ -99,10 +99,17 @@ unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char 
         // begin with comunicate with tracker
         printf("Send message to tracker\n");
         msg_send = send_msg_tracker(infos_com,hash,action);
+        printf("\n");
+        printf("hash dans le message : \n");
+        print_hash(msg_send+6);
+        printf("\n");
         usleep(100); // sleep for x ms
         msg_received = test_response_tracker(infos_com, action, msg_send);
+        
         if(strcmp(action,"gtt")==0)
             action[1]='e';
+        printf("ATTENTE 10 SECONDES \n");
+        sleep(2);
     }
     printf("%s %s from %s port %d\n",action,hash,infos_com.addr_tracker,infos_com.port_tracker);
     return msg_send;
@@ -118,7 +125,11 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
     loopbackaddr[0] = 127; loopbackaddr[1] = 0; loopbackaddr[2] = 0; loopbackaddr[3] = 1;
     // Analyse arguments
     // possible actions : PUT, GET, KEEP_ALIVE, PRINT ? 
-    printf("%s %s to %s port %d\n", action, hash,infos_com.addr_tracker,infos_com.port_tracker);
+   // printf("%s %s to %s port %d\n", action, hash,infos_com.addr_tracker,infos_com.port_tracker);
+    printf("\n");
+    print_hash(hash);
+    printf("\n");
+    
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
@@ -152,9 +163,6 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 // send the message
 void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
 {
-    printf("\n\n Avant l'envoi\n");
-    print_hash(message + 6);
-    printf("\n");
     if(sendto(sockfd, message, *(short int*)(message+1)+3, 0,(struct sockaddr*) &addr, sizeof(struct sockaddr_in)) == -1)
     {
         perror("sendto");
@@ -184,9 +192,18 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
         close(infos_com.sockfd_tracker);
         exit(EXIT_FAILURE);
     }
+            printf("\n hash recu : ");
+        print_hash(msg_recv+6);
+        printf("\n");
+
     /* if(strcmp(action,"get") == 0)
          action[1] = 't';*/
+    /*
     printf("\n\nune réponse à été reçue\n\n");
+    printf("\n");
+    print_hash(msg_recv + 3 + 3);
+    printf("\n");
+    */
     // test of message received
     return test_rep( action, msg_send, msg_recv);
 }
@@ -195,7 +212,7 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
 int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
 {
     short int msg_send_length = buf_to_s_int(msg_send +1) + 3; // length in message + 3 (type + length)
-    printf("entre dans le test\n");
+    int tmp;
     // communication with clients
     if(strcmp(action,"gtt") == 0) // message get client
     {
@@ -224,34 +241,23 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 111) // test if good type of message
             return -1;
         msg_recv[0] = 110; // change type to compare with msg_send
-        printf("regarde %d\n",u_strncmp(msg_send,msg_recv,msg_send_length));
-        printf(" port send %d port recv %d\n",buf_to_s_int(msg_send + 41),buf_to_s_int(msg_recv + 41));
-        printf("la longueur du msg client %d, du msg tracker %d\n",buf_to_s_int(msg_send +1), buf_to_s_int(msg_recv +1));
-        print_hash(msg_send + 6);
-        printf("\n");
-        print_hash(msg_recv + 6);
-        printf("\n");
-        printf(" début addresse send %d recv %d \n", msg_send[43],msg_recv[43]);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
         return 0;
     }
     else if(strcmp(action,"get") == 0) // message get tracker
     {
-        
         if (msg_recv[0] != 113) // test if good type of message
             return -1;
-        printf("MSG GET RECV !\n");
-        msg_recv[0] = 112; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
-        printf("message_send : ");
-        print_hash(msg_send);
-        printf(" \nmessage_recv : ");
-        print_hash(msg_recv);printf("\n");
         
-        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+        msg_recv[0] = 112; // change type to compare with msg_send
+        tmp = buf_to_s_int(msg_recv + 1);
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
+        
+        if(u_strncmp(msg_send,msg_recv,3+3+32) != 0) // strings different
             return -1;
-         printf("Message rcv = au message send\n");
+        msg_recv    = s_int_to_buf(msg_recv, tmp, 1);
+        printf("Message conforme\n");
         return 0;
     }
     if(strcmp(action,"keep_alive") == 0) // message keep_alive tracker
@@ -282,22 +288,27 @@ infos analyze_ack_get(unsigned char*message, infos infos_com)
 {
     client_s *liste_clients = NULL;
     client_s *new_client;
-    int length = strlen( (char*) message);
-    int index = 3;
+    int length = buf_to_s_int(message +1) +3;
+    int index = 3 + 3 + 32;
     int i;
+    printf("length %d\n",length);
     while (index < length)
     {
+        printf(" le type %d\n",message[index]);
         new_client = malloc(sizeof(client_s));
         index ++; // jump type
         new_client->length = buf_to_s_int(message+index) ; // type
         index +=2;
         new_client->port = buf_to_s_int(message +index);
         index +=2;
-        for(i = 0; i < new_client->length ;i++)
+        printf("%d à l'index\n",message[index],index);
+        for(i = 0; i < new_client->length -2 ;i++)
             new_client->address_ip[i] = message[index+i];
-        i+=new_client->length;
+        index+=new_client->length -2;
         new_client->next = liste_clients;
         liste_clients = new_client;
+        printf("IP : %d.%d.%d.%d port %d\n",new_client->address_ip[0],new_client->address_ip[1],new_client->address_ip[2],new_client->address_ip[3], new_client->port);
+        printf("un nouveau client index %d\n",index);
     }
     infos_com.liste_clients = liste_clients;
     return infos_com;
@@ -307,11 +318,11 @@ infos analyze_ack_get(unsigned char*message, infos infos_com)
 infos analyze_messages_tracker(unsigned char *message,infos infos_com)
 {
     client_s *liste;
-    if(message[0] == 111) // message ACKPUT
+    if(message[0] == 110) // message ACKPUT
         ; // nothing to do ( test was made in test_rep)
     else if(message[0] == 115)
         ; // nothing to do ( test was made in test_rep)
-    else if(message[0] == 113) // message ACKGET
+    else if(message[0] == 112) // message ACKGET
     {
         printf("on va rentrer dans l'analyze_get\n");
         infos_com = analyze_ack_get(message,infos_com);
@@ -319,9 +330,10 @@ infos analyze_messages_tracker(unsigned char *message,infos infos_com)
         liste = infos_com.liste_clients;
         while(liste != NULL)
         {
-            printf("IP : %s port %d",liste->address_ip, liste->port);
+            printf("IP : %d.%d.%d.%d port %d\n",liste->address_ip[0],liste->address_ip[1],liste->address_ip[2],liste->address_ip[3], liste->port);
             liste=liste->next;
         }
+        printf("j'ai fini \n");
     }
     else
     {

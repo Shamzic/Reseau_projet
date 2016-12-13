@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 
 
 #include "structures.h"
@@ -25,7 +26,7 @@
 #define EXPIRATION 5
 #define chunk_size 1000000
 #define FRAGMENT_TAILLE 1000
-
+int var;
 // init listen port
 // my_addr : listen messages from seeders
 // seeder[i].addr_struct : communication with seeder i
@@ -49,7 +50,6 @@ infos init_connexion_seeders(infos infos_com)
         infos_com.liste_seeder[i].addr_struct.sin_port            = htons(infos_com.liste_seeder[i].port);
         infos_com.liste_seeder[i].addr_struct.sin_addr.s_addr = htonl(INADDR_ANY);
         infos_com.liste_seeder[i].asked_chunk = 0;
-        infos_com.liste_seeder[i].asked_index = 0;
     }
     
     infos_com.my_addr.sin_family      = AF_INET;
@@ -190,22 +190,24 @@ unsigned char * seek_response(unsigned char * message, int sockfd,struct sockadd
 {
     unsigned char *msg_received = malloc(1082);
     socklen_t addrlen = sizeof(struct sockaddr_in);
+    
     if(recvfrom(sockfd, msg_received, 1082, MSG_DONTWAIT,(struct sockaddr *)&addr,&addrlen) == -1)
     {
         if ( errno == EAGAIN || errno == EWOULDBLOCK) // there were no packet
         {
-            printf("Aucune réponse reçue\n");
+   //         printf("Aucune réponse reçue\n");
             free(msg_received);
             return NULL;
         }
         perror("recv");
         exit(EXIT_FAILURE);
     }
+    var ++;
     
     // test if type of response is good
     if(test_rep(action,message,msg_received)==-1) // wrong hash
     {
-        printf("Wrong msg \n");
+  //      printf("Wrong msg \n");
         free(msg_received);
         return NULL;
     }
@@ -254,25 +256,22 @@ int pos_hash (  char * hash,  char ** tab_chunks, int nb_chunks)
     }
     return -1;
 }
-int write_chunk(unsigned char * response,int fd, table_chunks table)
+
+
+int write_chunk(unsigned char * response,int fd)
 {
     short int size_fragment = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 +2 + 1)- 4;
-    short int index = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 +2 + 1 +2);
-    short int chunk = pos_hash( (char*) (response + 3+3+32+3),(char**)table.tab_chunks, table.nb_chunks); // nr du chunk
-    if(chunk == -1)
-    {
-        printf("hash not found \n");
-        return -1;
-    }
+    short int index_chunk = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 );
+    short int index_fragment = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 +2 + 1 +2);
+    
     // se place
-    if(lseek(fd, chunk * chunk_size + index * FRAGMENT_TAILLE,SEEK_SET) == -1)
+    if(lseek(fd, index_chunk * chunk_size + index_fragment * FRAGMENT_TAILLE,SEEK_SET) == -1)
     {
-        perror("lseek");
+        perror("lseek write");
         exit(EXIT_FAILURE);
     }
-    
+  //  printf("write se place %d  index chunk %d index fra %d\n",index_chunk * chunk_size + index_fragment * FRAGMENT_TAILLE,index_chunk,index_fragment);
     // write chunk into file
-    
     if(write(fd, response + 3 + 3 + 32 + 3 + 32 + 2 + 1 + 6, size_fragment) == -1)
     {
         perror("write");
@@ -280,7 +279,6 @@ int write_chunk(unsigned char * response,int fd, table_chunks table)
     }
     return 0;
 }
-
 
 seeder* save_seeder ( int argc,char ** argv)
 {
@@ -302,7 +300,7 @@ int file_received ( have_chunk *table, int nb_chunks)
     int i;
     for(i = 0;i< nb_chunks; i ++)
     {
-        if(table[i].have == -1 || table[i] == 0) // chunk pas encore cherché ou chunk en cours de recherche
+        if(table[i].have == -1 || table[i].have == 0) // chunk pas encore cherché ou chunk en cours de recherche
             return -1;
     }
     return 0;
@@ -313,31 +311,19 @@ int file_received ( have_chunk *table, int nb_chunks)
 // Si plus aucun chunk non trouvé qui n'est pas en train d'être cherché ne fais rien non plus
 seeder attr_index_search(seeder s, infos infos_com, table_chunks chunk_tab)
 {
-    int i,j;
-    //printf("putain cherche %d %d\n",s.asked_chunk,s.asked_index);
-    //printf(" jldfkjdlg   %d \n",infos_com.have_table[s.asked_chunk].have_fragments[s.asked_index] );
+    int i;
+    //printf("putain cherche %d %d\n",s.asked_chunk);
   //  printf("putain\n");
-    if(infos_com.have_table[s.asked_chunk].have_fragments[s.asked_index] == 0) // en train de rechercher -> ne fait rien
-        return s;
     for(i=0;i<chunk_tab.nb_chunks;i++) // passe chaque chunk
     {
       //  printf("demande\n");
        // printf("lindex est %d\n",chunk_tab.tab_index_chunks[i]);
-       // printf("reponse eu\n");
-        if(infos_com.have_table[i].have == 1) // possède le chunk;
-            continue;
-        for(j=0;j< chunk_tab.tab_index_chunks[i];j++) // regarde chaque index
+        if(infos_com.have_table[i].have == -1) // possède le chunk;
         {
-            if(infos_com.have_table[i].have_fragments[j] == -1)
-            {
-                s.asked_chunk = i;
-                s.asked_index = j;
-                infos_com.have_table[i].have_fragments[j] = 0;
-                return s;
-            }
-      //      printf(" fragment %d\n",infos_com.have_table[i].have_fragments[j] );
+            s.asked_chunk = i;
+            infos_com.have_table[i].have = 0;
+            return s;
         }
-        infos_com.have_table[i].have = 1;
     //    printf("je vais attendre 100 s\n");
   //      sleep(100);
     }
@@ -448,6 +434,25 @@ unsigned char * traitement_message(infos infos_com, unsigned char * msg)
     return response;
 }
 
+have_chunk  set_fragments_not_received ( have_chunk table,int  max_index)
+{
+    int i;
+    for(i=0;i<max_index; i++)
+        table.have_fragments[i] = -1;
+    return table;
+}
+
+int chunk_complet(have_chunk table, int max_index)
+{
+    int i;
+    for(i=0;i <max_index ;i++)
+    {
+        if(table.have_fragments[i] == -1)
+            return -1;
+    }
+    return 1;
+}
+
 void * send_chunks (void * info)
 {
     unsigned char buf[1082];
@@ -499,6 +504,7 @@ void * send_chunks (void * info)
 
 int main(int argc, char **argv)
 {
+    var=0;
     // check the number of args on command line
     if( argc % 2 != 0 || argc < 6)
     {
@@ -514,10 +520,15 @@ int main(int argc, char **argv)
     infos infos_com;
     seeder s ;
     unsigned char ** tab_request;
+    int * first_message ;
+    int max_index,pos;
+    int empty, received_fragment,received_chunk;
     pthread_t send_chunk_thread;
     fdpol.events = POLLIN;
     
-    
+    int n = 1000000000;
+    if(setsockopt(infos_com.sockfdseeder, SOL_SOCKET, SO_RCVBUF,&n,sizeof(n)) == -1)
+        perror("setsockopt");
     infos_com.hash      =hash_to_char( argv[argc - 2]);
     infos_com.dest_file = (unsigned char *)argv[argc - 1];
     infos_com.port_listen = atoi(argv[argc - 3]);
@@ -531,6 +542,7 @@ int main(int argc, char **argv)
     message             = create_message_list(infos_com.hash);
     fdpol.fd = infos_com.sockfdseeder;
     
+    first_message = malloc(infos_com.nb_seeders *sizeof(int));
     
     while(response == NULL)
     {
@@ -565,14 +577,8 @@ int main(int argc, char **argv)
     for(i=0 ; i < table.nb_chunks ; i++)
     {
         have_table[i].have = -1;
-        have_table[i].have_fragments = malloc(table.tab_index_chunks[i]);
         printf(" index de chunks %d\n",table.tab_index_chunks[i]);
-        for(j=0 ; j<table.tab_index_chunks[i] ; j++)
-        {
-            have_table[i].have_fragments[j] = -1;
-        }
     }
-    printf(" havetable[0][0] %d\n",have_table[0].have_fragments[0]);
     infos_com.have_table = have_table;
     infos_com.tab_index_chunks = table.tab_index_chunks;
 //    // intialise tab_index_chunks
@@ -598,39 +604,147 @@ int main(int argc, char **argv)
     while(file_received(have_table,table.nb_chunks) == -1) // tant que fichier n'a pas été reçu
     {
         // send get messages
+        printf("il y a %d seeder\n",infos_com.nb_seeders);
         for(i=0; i < infos_com.nb_seeders ; i ++) // cherche un fragment à demander pour chaque packet à envoyer
         {
+            printf("je suis i %d\n",i);
             infos_com.liste_seeder[i] = attr_index_search(infos_com.liste_seeder[i],infos_com,table);
+            printf("jai demandé le chunk %d\n",infos_com.liste_seeder[i].asked_chunk);
             s = infos_com.liste_seeder[i];
-            tab_request[i] = create_message_get_peer( infos_com.hash, table.tab_chunks[s.asked_chunk],s.asked_index);
+            tab_request[i] = create_message_get_peer( infos_com.hash, table.tab_chunks[s.asked_chunk],s.asked_chunk);
             send_packet(tab_request[i],infos_com.sockfdseeder, s.addr_struct);
+            
+        //    if (var > 0)
+          //      printf("first msg %d avec i %d\n",first_message[i],i);
+            first_message[i] = -1 ; //initialise first_message à -1
         }
-        for(i=0; i < infos_com.nb_seeders ; i++)
+        
+        max_index = infos_com.nb_seeders; // init max_index au nombre de seeders (par la suite le corrige lorsqu'il reçoit les premiers messages)
+        for(i=0; i < max_index ; i++)
         {
-            switch(poll(&fdpol,1,1000))
+            ioctl(infos_com.sockfdseeder,FIONREAD,&empty);
+            if(empty != 0)
             {
-                case -1:
-                    perror("poll");
-                    exit(EXIT_FAILURE);
-                    break;
-                case 0: // Timeout
-                    printf("Timeout\n");
-                    break;
-                case 1:
+                for(j=0;j<infos_com.nb_seeders;j++)
                 {
-                    response = seek_response(tab_request[i],infos_com.sockfdseeder, infos_com.liste_seeder[i].addr_struct,"get");
-                    if(write_chunk(response,fd,table) == -1)
-                        printf("Mauvais chunk\n");
-                    else
+                    response = seek_response(tab_request[j],infos_com.sockfdseeder,infos_com.liste_seeder[j].addr_struct,"get");
+                    if(response != NULL)
+                        break;
+                }
+                if(response == NULL)
+                    continue;
+                // regarde si c'est le 1 er message reçu du chunk demandé 
+                pos = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 );
+                for(j=0;j<infos_com.nb_seeders; j++)
+                {
+                    //printf("il y a %d seeder \n",infos_com.nb_seeders);
+                    if(infos_com.liste_seeder[j].asked_chunk == pos)
                     {
-                        infos_com.have_table[infos_com.liste_seeder[i].asked_chunk].have_fragments[infos_com.liste_seeder[i].asked_index] = 1;// marque l'index comme reçu
-                        printf("MESSAGE REÇU \n");
+                        if(first_message[j] == -1) // first message which was received
+                        {
+                            printf("firts message %d du fragment %d j vaut %d\n",first_message[j],pos,j);
+                            //if(pos == 1)
+                           //     sleep(19);
+                            first_message[j] =buf_to_s_int(response + 3+3+32+3+32+2+3+2);
+                            max_index +=  buf_to_s_int(response + 3+3+32+3+32+2+3+2) -1; // enlève  pour le message déjà eu
+                            infos_com.have_table[pos].have_fragments = malloc(first_message[j]);
+                            received_fragment = buf_to_s_int(response + 3+3+32+3+32+2+3);
+                            infos_com.have_table[pos].have_fragments[received_fragment] =1;
+                            break;
+                        }
                     }
-                    free(response);
+                }
+                
+                if(write_chunk(response,fd) == -1)
+                    printf("Mauvais chunk\n");
+                else // good write -> set tab_have[i].fragments_have[fragment_received] to 1
+                {
+                    received_fragment = buf_to_s_int(response + 3+3+32+3+32+2+3);
+                    received_chunk = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 );
+                    infos_com.have_table[received_chunk].have_fragments[received_fragment] = 1;// marque l'index comme reçu
+          //          printf("MESSAGE REÇU \n");
+                }
+                free(response);
+                response = NULL;
+            }
+            else
+            {
+                switch(poll(&fdpol,1,100))
+                {
+                    case -1:
+                        perror("poll");
+                        exit(EXIT_FAILURE);
+                        break;
+                    case 0: // Timeout
+                        printf("Timeout au message %d\n",i);
+                        break;
+                    case 1:
+                    {
+                        for(j=0;j<infos_com.nb_seeders;j++)
+                        {
+                            response = seek_response(tab_request[j],infos_com.sockfdseeder,infos_com.liste_seeder[j].addr_struct,"get");
+                            if(response != NULL)
+                                break;
+                        }
+                        if(response == NULL)
+                            continue;
+                        // regarde si c'est le 1 er message reçu du chunk demandé 
+                        pos = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 );
+                        for(j=0;j<infos_com.nb_seeders; j++)
+                        {
+                            if(infos_com.liste_seeder[j].asked_chunk == pos)
+                            {
+                                if(first_message[j] == -1) // first message which was received
+                                {
+                            printf("firteee message %d du chunk %d\n",first_message[j],pos);
+                                   first_message[j] =buf_to_s_int(response + 3+3+32+3+32+2+3+2);
+                                    max_index +=  buf_to_s_int(response + 3+3+32+3+32+2+3+2) -1; // enlève  pour le message déjà eu
+                                    printf("fait un malloc de %d\n",first_message[j]);
+                                    infos_com.have_table[pos].have_fragments = malloc(first_message[j]);
+                                    received_fragment = buf_to_s_int(response + 3+3+32+3+32+2+3);
+                                    
+                          //  if(pos == 1)
+                            //    sleep(19);
+                                    infos_com.have_table[pos].have_fragments[received_fragment] =1;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if(write_chunk(response,fd) == -1)
+                            printf("Mauvais chunk\n");
+                        else // good write -> set tab_have[i].fragments_have[fragment_received] to 1
+                        {
+                            received_fragment = buf_to_s_int(response + 3+3+32+3+32+2+3);
+                            received_chunk = buf_to_s_int( response + 3 + 3 + 32 + 3 + 32 );
+                            infos_com.have_table[received_chunk].have_fragments[received_fragment] = 1;// marque l'index comme reçu
+            //                printf("MESSAGE REÇU \n");
+                        }
+                        free(response);
+                        response = NULL;
+                    }
                 }
             }
-            free(tab_request[i]);
         }
+        for(i=0;i<infos_com.nb_seeders;i++)
+        {
+            free(tab_request[i]);
+            if(chunk_complet(infos_com.have_table[infos_com.liste_seeder[i].asked_chunk],first_message[i]) == 1)
+            {
+                infos_com.have_table[infos_com.liste_seeder[i].asked_chunk].have = 1;
+                free(infos_com.have_table[infos_com.liste_seeder[i].asked_chunk].have_fragments);
+                printf("chunk %d is received \n",infos_com.liste_seeder[i].asked_chunk);
+                printf("j ai reçu variables %d\n",var);
+            }
+            else
+            {
+                printf("chunk not received\n");
+    //               infos_com.have_table[infos_com.liste_seeder[i].asked_chunk].asked_chunk = -1;
+                infos_com.have_table[infos_com.liste_seeder[i].asked_chunk] = set_fragments_not_received(infos_com.have_table[infos_com.liste_seeder[i].asked_chunk],first_message[i]);
+            }
+            first_message[i] = -1;
+        }
+        
     }
     //printf("ask for chunk %d\n",table.index);
     //printf("end ask\n");
@@ -657,7 +771,7 @@ int main(int argc, char **argv)
     free(have_table);
     free(infos_com.liste_seeder);
     free(tab_request);
-    
+    free(first_message);
     printf("la fin =)\n");
     return 0;
 }
