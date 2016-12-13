@@ -61,7 +61,6 @@ unsigned char * create_message_rep_get(unsigned char * hash_file,unsigned char *
     // chunk
     buffer[75]  = 60;
     buffer      = s_int_to_buf(buffer,nb_cars_lus + 2 + 2,76);
-    printf("nb_cars_lus %d\n",nb_cars_lus);
     buffer      = s_int_to_buf(buffer,fragment_index,78);
     buffer      = s_int_to_buf(buffer,max_index,80);
     memcpy(buffer+82,chunk,nb_cars_lus);
@@ -81,7 +80,6 @@ unsigned char * create_message_list(unsigned char * hash_file)
     buffer[3] = 50;
     buffer    = s_int_to_buf(buffer,32,4);
     memcpy(buffer+6,hash_file,32);
-    printf("res %d\n",strncmp( (char*) hash_file,(char*)buffer+6,32));
     return buffer;
 }
 

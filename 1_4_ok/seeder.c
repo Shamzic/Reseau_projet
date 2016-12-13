@@ -23,6 +23,7 @@
 #define FRAGMENT_TAILLE 1000 // data = 0 à 1000
 
 int sendvar;
+
 // init listen port
 infos init_listen(infos infos_com)
 {
@@ -174,13 +175,6 @@ unsigned char * rep_list(unsigned char * msg,infos infos_com)
     unsigned int length_msg;
     int i,pos=0;
     
-    /*
-    if((hash=(unsigned char*)strncpy((char*)hash,(char*)msg + 6, length_hash)) == NULL)
-    {
-        perror("strncpy");
-        exit(EXIT_FAILURE);
-    }
-    */
     // fait le message de réponse
     length_msg = 1 + 2 + 1 + 2 + 32 + infos_com.nb_chunks*(5 + 32);
     
@@ -248,7 +242,7 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
         exit(EXIT_FAILURE);
     }
     pos +=length_hash_chunk;
-    //chunk_index = buf_to_s_int(msg + pos);
+
     chunk_index = pos_hash((char*)hash_chunk,(char**) infos_com.tab_chunks,infos_com.nb_chunks);
     if(chunk_index == -1)
     {
@@ -271,7 +265,7 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
         exit(EXIT_FAILURE);
     }
     printf("pour le chunk %d et index %d se place à %d\n",chunk_index,fragment_index,chunk_index * chunk_size + fragment_index * FRAGMENT_TAILLE);
-    //sleep(1);
+
     if((nb_cars_lus=read(fd,chunk,FRAGMENT_TAILLE)) == -1)
     {
         perror("read");
@@ -279,9 +273,6 @@ unsigned char * rep_get(unsigned char * msg,unsigned char * hash,infos infos_com
     }
     max_index = infos_com.tab_index_chunks[chunk_index];
     
-    if(nb_cars_lus < 1000)
-        printf("nb_cars_lus %d\n",nb_cars_lus);
-    printf("lindex du fragment est %d\n",fragment_index);
     message =create_message_rep_get( hash, hash_chunk, chunk, chunk_index,fragment_index, max_index,nb_cars_lus);
     free(chunk);
     free(hash_chunk);
@@ -323,7 +314,6 @@ int traitement_message(infos infos_com, unsigned char * msg)
         send_packet ( response, infos_com.sockfdtarget,infos_com.target);
         free(response);
         free(hash);
-        printf("msg type 103 envoyé \n");
         return 1;
     }
     else if (msg[0] == 100)

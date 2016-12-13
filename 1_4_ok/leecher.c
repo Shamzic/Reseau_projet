@@ -138,12 +138,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         tmp_length = buf_to_s_int(msg_recv +1);
         msg_recv    = s_int_to_buf( msg_recv, buf_to_s_int(msg_send + 1), 1);
         if((test=u_strncmp(msg_send,msg_recv,msg_send_length)) != 0) // strings different
-        {
-            //printf("j'attends\n");
-            //sleep(1);
-            //printf("test %d\n",test);
             return -1;
-        }
         msg_recv    = s_int_to_buf(msg_recv, tmp_length, 1);
         return 0;
     }
@@ -292,14 +287,14 @@ int main(int argc, char **argv)
     message             = create_message_list(infos_com.hash);
     fdpol.fd = infos_com.sockfdtarget;
     
-//    int n = 100000000;
-  //  if(setsockopt(infos_com.sockfdtarget, SOL_SOCKET, SO_RCVBUF,&n,sizeof(n)) == -1)
-    //    perror("setsockopt");
-
+    /*
+    int n = 100000000;
+    if(setsockopt(infos_com.sockfdtarget, SOL_SOCKET, SO_RCVBUF,&n,sizeof(n)) == -1)
+        perror("setsockopt");
+    */
     while(response == NULL)
     {
         send_packet(message,infos_com.sockfdtarget,infos_com.target);
-        //printf("je suis ici\n");
         switch(poll(&fdpol, 1 , 1000))
         {
             case -1:
@@ -339,8 +334,6 @@ int main(int argc, char **argv)
     // ask chunks
     while(table.index < table.nb_chunks)
     {
-        printf("ask for chunk %d\n",table.index);
-        
         //create message get peer
         request = create_message_get_peer(infos_com.hash,table.tab_chunks[table.index],table.index );
         
@@ -348,7 +341,6 @@ int main(int argc, char **argv)
         while(response == NULL)
         {
             send_packet(request, infos_com.sockfdtarget,infos_com.target);
-            //printf("first fragment\n");
             switch(poll(&fdpol, 1 , 1000))
             {
                 case -1:
@@ -381,7 +373,6 @@ int main(int argc, char **argv)
         // set number of fragments which will come
         max_index = buf_to_s_int(response + 3+3+32+3+32+2+3+2);
         received_fragment = buf_to_s_int(response + 3+3+32+3+32+2+3);
-        printf(" \t\t max index %d\n",max_index);
         
         //set every fragment in have_table[table.index].fragments to -1
         infos_com.have_table[table.index].have_fragments= malloc(max_index);
@@ -440,7 +431,6 @@ int main(int argc, char **argv)
         }
         
         free(request);
-        printf("look if chunk complet \n");
         if(chunk_complet(infos_com.have_table[table.index],max_index) == 1)
         {
             printf("chunk %d is received \n",table.index);
@@ -460,7 +450,6 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
     
-    printf("il y avait %d chunks\n",table.nb_chunks);
     for(i=0;i<table.nb_chunks; i++)
         free(infos_com.have_table[i].have_fragments);
     for(i=0;i<table.nb_chunks;i++)
@@ -470,7 +459,6 @@ int main(int argc, char **argv)
     free(infos_com.hash);
     free(infos_com.have_table);
     close(infos_com.sockfdtarget);
-    printf("la fin =)\n");
     return 0;
 }
 
