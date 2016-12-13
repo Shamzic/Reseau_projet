@@ -19,7 +19,7 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 
 int u_strncmp(unsigned char * string1,unsigned char * string2, int n);
 
-int test_response_tracker(infos infos_com , char * action, unsigned char * message);
+char* test_response_tracker(infos infos_com , char * action, unsigned char * msg_send)
 
 unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char * action);
 

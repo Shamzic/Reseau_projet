@@ -91,21 +91,22 @@ infos init_all(infos infos_com)
 
 unsigned char * communicate_tracker(infos infos_com, unsigned char * hash, char * action)
 {
-    int msg_received = -1;
+    unsigned char * msg_received=NULL;
     unsigned char * msg_send;
-    
-    while (msg_received == -1)
+    while (msg_received == NULL)
     {
         // begin with comunicate with tracker
         printf("Send message to tracker\n");
         msg_send = send_msg_tracker(infos_com,hash,action);
-        usleep(100); // sleep for x ms
-        msg_received = test_response_tracker(infos_com, action, msg_send);
+        sleep(1);
+        msg_received = (unsigned char*)test_response_tracker(infos_com, action, msg_send);
+        
         if(strcmp(action,"gtt")==0)
             action[1]='e';
     }
     printf("%s %s from %s port %d\n",action,hash,infos_com.addr_tracker,infos_com.port_tracker);
-    return msg_send;
+    free(msg_send);
+    return msg_received;
 }
 
 
@@ -117,8 +118,7 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
     char loopbackaddr[4];
     loopbackaddr[0] = 127; loopbackaddr[1] = 0; loopbackaddr[2] = 0; loopbackaddr[3] = 1;
     // Analyse arguments
-    // possible actions : PUT, GET, KEEP_ALIVE, PRINT ? 
-    printf("%s %s to %s port %d\n", action, hash,infos_com.addr_tracker,infos_com.port_tracker);
+    
     if (strcmp(action,"put") == 0 )
     {
         printf("put\n");
@@ -143,7 +143,6 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
         perror("Action :-( ");
         exit(EXIT_FAILURE);
     }
-    //printf("send to %d on addr %s with sockfd : %d\n", htons(infos_com.tracker.sin_port),infos_com.addr_tracker,infos_com.sockfd_tracker);
     send_packet(msg_send, infos_com.sockfd_tracker, infos_com.tracker); // send the packet to tracker
     return msg_send;
 }
@@ -152,9 +151,6 @@ unsigned char * send_msg_tracker(infos infos_com,unsigned char * hash, char * ac
 // send the message
 void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
 {
-    printf("\n\n Avant l'envoi\n");
-    print_hash(message + 6);
-    printf("\n");
     if(sendto(sockfd, message, *(short int*)(message+1)+3, 0,(struct sockaddr*) &addr, sizeof(struct sockaddr_in)) == -1)
     {
         perror("sendto");
@@ -162,14 +158,13 @@ void send_packet (unsigned char* message,int sockfd,struct sockaddr_in addr)
         exit(EXIT_FAILURE);
     }
     printf("Message envoyé\n");
-    sleep(2);
 }
 
 
-int test_response_tracker(infos infos_com , char * action, unsigned char * msg_send)
+ char* test_response_tracker(infos infos_com , char * action, unsigned char * msg_send)
 {
     socklen_t addrlen = sizeof(struct sockaddr_in);
-    unsigned char msg_recv[1024];
+    unsigned char* msg_recv = malloc(1024);
     
     // wait for response
     if(recvfrom(infos_com.sockfd_tracker, msg_recv, 1024, MSG_DONTWAIT,(struct sockaddr *)&infos_com.tracker,&addrlen) == -1)
@@ -177,25 +172,28 @@ int test_response_tracker(infos infos_com , char * action, unsigned char * msg_s
         if ( errno == EAGAIN || errno == EWOULDBLOCK) // there were no packet
         {
             printf("Aucune réponse reçue\n");
-            return -1;
+            return NULL;
         }
         perror("recv");
         close(infos_com.sockfdmy);
         close(infos_com.sockfd_tracker);
         exit(EXIT_FAILURE);
     }
-    /* if(strcmp(action,"get") == 0)
-         action[1] = 't';*/
-    printf("\n\nune réponse à été reçue\n\n");
     // test of message received
-    return test_rep( action, msg_send, msg_recv);
+    if (test_rep(action,msg_send,msg_recv) == 0) 
+        return ( char*)msg_recv;
+    else
+    {
+        free(msg_recv);
+        return NULL;
+    }
 }
 
 // test if right message was received
 int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
 {
     short int msg_send_length = buf_to_s_int(msg_send +1) + 3; // length in message + 3 (type + length)
-    printf("entre dans le test\n");
+    int tmp;
     // communication with clients
     if(strcmp(action,"gtt") == 0) // message get client
     {
@@ -212,7 +210,7 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 103) // test if good type of message
             return -1;
         msg_recv[0] = 102; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1); printf(" RECEPTION : %s\n",msg_recv); 
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1); 
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
         return 0;
@@ -224,34 +222,22 @@ int test_rep( char * action, unsigned char * msg_send, unsigned char * msg_recv)
         if (msg_recv[0] != 111) // test if good type of message
             return -1;
         msg_recv[0] = 110; // change type to compare with msg_send
-        printf("regarde %d\n",u_strncmp(msg_send,msg_recv,msg_send_length));
-        printf(" port send %d port recv %d\n",buf_to_s_int(msg_send + 41),buf_to_s_int(msg_recv + 41));
-        printf("la longueur du msg client %d, du msg tracker %d\n",buf_to_s_int(msg_send +1), buf_to_s_int(msg_recv +1));
-        print_hash(msg_send + 6);
-        printf("\n");
-        print_hash(msg_recv + 6);
-        printf("\n");
-        printf(" début addresse send %d recv %d \n", msg_send[43],msg_recv[43]);
         if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
             return -1;
         return 0;
     }
     else if(strcmp(action,"get") == 0) // message get tracker
     {
-        
         if (msg_recv[0] != 113) // test if good type of message
             return -1;
-        printf("MSG GET RECV !\n");
-        msg_recv[0] = 112; // change type to compare with msg_send
-        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
-        printf("message_send : ");
-        print_hash(msg_send);
-        printf(" \nmessage_recv : ");
-        print_hash(msg_recv);printf("\n");
         
-        if(u_strncmp(msg_send,msg_recv,msg_send_length) != 0) // strings different
+        msg_recv[0] = 112; // change type to compare with msg_send
+        tmp = buf_to_s_int(msg_recv + 1);
+        msg_recv    = s_int_to_buf(msg_recv, buf_to_s_int(msg_send + 1), 1);
+        if(u_strncmp(msg_send,msg_recv,3+3+32) != 0) // strings different
             return -1;
-         printf("Message rcv = au message send\n");
+        msg_recv    = s_int_to_buf(msg_recv, tmp, 1);
+        printf("Message conforme\n");
         return 0;
     }
     if(strcmp(action,"keep_alive") == 0) // message keep_alive tracker
@@ -282,8 +268,8 @@ infos analyze_ack_get(unsigned char*message, infos infos_com)
 {
     client_s *liste_clients = NULL;
     client_s *new_client;
-    int length = strlen( (char*) message);
-    int index = 3;
+    int length = buf_to_s_int(message +1) ;
+    int index = 3 + 3 + 32;
     int i;
     while (index < length)
     {
@@ -293,9 +279,9 @@ infos analyze_ack_get(unsigned char*message, infos infos_com)
         index +=2;
         new_client->port = buf_to_s_int(message +index);
         index +=2;
-        for(i = 0; i < new_client->length ;i++)
+        for(i = 0; i < new_client->length -2 ;i++)
             new_client->address_ip[i] = message[index+i];
-        i+=new_client->length;
+        index+=new_client->length -2;
         new_client->next = liste_clients;
         liste_clients = new_client;
     }
@@ -306,21 +292,22 @@ infos analyze_ack_get(unsigned char*message, infos infos_com)
 // analyze messages from tracker
 infos analyze_messages_tracker(unsigned char *message,infos infos_com)
 {
-    client_s *liste;
-    if(message[0] == 111) // message ACKPUT
+    client_s *liste,*tmp;
+    if(message[0] == 110) // message ACKPUT
         ; // nothing to do ( test was made in test_rep)
     else if(message[0] == 115)
         ; // nothing to do ( test was made in test_rep)
-    else if(message[0] == 113) // message ACKGET
+    else if(message[0] == 112) // message ACKGET
     {
-        printf("on va rentrer dans l'analyze_get\n");
         infos_com = analyze_ack_get(message,infos_com);
         // print every client
         liste = infos_com.liste_clients;
         while(liste != NULL)
         {
-            printf("IP : %s port %d",liste->address_ip, liste->port);
+            printf("IP : %d.%d.%d.%d port %d\n",liste->address_ip[0],liste->address_ip[1],liste->address_ip[2],liste->address_ip[3], liste->port);
+            tmp = liste;
             liste=liste->next;
+            free(tmp);
         }
     }
     else
@@ -336,18 +323,19 @@ infos analyze_messages_tracker(unsigned char *message,infos infos_com)
 void *send_keep_alive( void * info)
 {
     infos* infos_com = (infos *) info;
-    int msg_received = -1;
+    char* msg_received = NULL;
     unsigned char* msg_send;
     
     while(1)
     {
         sleep(EXPIRATION);
+        msg_received=NULL;
         // send keep alive to tracker
-        while(msg_received == -1)
+        while(msg_received == NULL)
         {
             printf("Send keep_alive to tracker\n");
             msg_send = send_msg_tracker(*infos_com,infos_com->hash,"keep_alive");
-            usleep(100);
+            usleep(1000);
             msg_received = test_response_tracker(*infos_com, "keep_alive", msg_send);
         }
     }
@@ -361,9 +349,6 @@ int main(int argc, char **argv)
     short int port_send,port_listen;
     char * action;
     unsigned char * hash;
-    unsigned char buf[1024];
-    struct sockaddr enter_co;
-    socklen_t addrlen;
     unsigned char * message;
     pthread_t thread_keep_alive;
     
@@ -389,7 +374,6 @@ int main(int argc, char **argv)
     // communicate with tracker
     message = communicate_tracker(infos_com,hash,action);
     printf("\t COMMUNICATE WITH TRACKER END\n");
-    
     // if put then make thread which send keep_alive to tracker
     if(strcmp(action,"put") == 0 )
     {
@@ -405,33 +389,16 @@ int main(int argc, char **argv)
     }
     
     
-    while(1) // communication client-client : GET, REP_GET, LIST, REP_LISTE
-    {
-        // wait for messages
-        if(recvfrom(infos_com.sockfdmy, buf, 1024, 0,&enter_co,&addrlen) == -1)
+    
+    // END
+    if(strcmp(action,"put")==0)
+    {       
+        if(pthread_join(thread_keep_alive,NULL) != 0)
         {
-            perror("recv");
-            close(infos_com.sockfdmy);
-            close(infos_com.sockfdtarget);
+            perror("pthread_join");
             exit(EXIT_FAILURE);
         }
     }
-    printf("%s\n",message);
-    
-    
-    // END
-    
-    if(pthread_cancel(thread_keep_alive) == -1)
-    {
-        perror("pthread_cancel");
-        exit(EXIT_FAILURE);
-    }
-    
-    if(pthread_join(thread_keep_alive,NULL) != 0)
-    {
-        perror("pthread_join");
-        exit(EXIT_FAILURE);
-    }
-
+    free(message);
     return 0;
 }

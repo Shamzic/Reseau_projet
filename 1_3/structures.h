@@ -5,10 +5,10 @@
 // structures vers le tracker 
 typedef struct s_client
 {
-    char type;
     short int length; // 6 pour IPV4, 16 pour IPV6
     short int port;
     char address_ip [16];
+    time_t time;
     struct s_client * next;
 } client_s;
 
