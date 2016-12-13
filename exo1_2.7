@@ -1,0 +1,36 @@
+\" COMMENT LIRE CETTE PAGE AVEC LA COMMANDE "man exo1" ?
+.\" 1) Compresser ce fichier au format .gz
+.\" 2) sudo cp exo12.7.gz /usr/share/man/man7
+.\" 3) man exo1
+
+
+.TH EXO1.2 1 "DECEMBRE 2016" Linux "Manuel utilisateur"
+
+
+.SH NAME
+tracker \- programme de l'exercice 1.2
+.SH SYNOPSIS
+.B tracker
+.I adresse
+.I port
+
+
+.SH DESCRIPTION
+.B tracker
+lance un tracker un port d'écoute fourni en paramètre. Lors de la réception d'un message
+put, il renvoie un ack_put et enregistre le client dans le tableau des hash à la case
+associée au hash.
+
+.SH FICHIERS
+.I ./exo1.c
+.RS
+Fichier du main.
+.RE
+.I ./msg_create.c
+.RS
+Fichier de fonctions de création de qmessages
+
+.SH AUTEURS
+Simon Hamery <simon.hamery2@etu.unistra.fr> 
+.PP 
+Daniel Wilhelm <daniel.whilhelm@etu.unistra.fr>
